@@ -102,8 +102,8 @@ Each matched entry becomes the SARIF suppression `{"kind": "external", "status":
 1. read and validate the configuration and the suppressions file;
 2. for each check, delete its log, run its command, and read the log that the command wrote. A log left by an earlier run is therefore never read;
 3. validate each log against the profile ([profile, section 5.6](profile.md#56-rejected-input)). A log that the rejected vectors describe is rejected;
-4. merge the runs of the valid logs into one log, one run per producer run with its `tool` object unaltered. Build the identity of every result, numbering identical occurrences across every run of one tool;
-5. apply the suppressions, then add the run of the gate, of driver `elenchos`, holding one result for each failed check and for each stale suppression;
+4. merge the runs of the valid logs into one log, one run per producer run with its `tool` object unaltered, incomplete runs included. Build the identity of every result, numbering identical occurrences across every run of one tool;
+5. apply the suppressions, then add the run of the gate, of driver `elenchos`, holding one result for each failed or incomplete check and for each stale suppression;
 6. write the merged log at `output`, print one summary line per check and every blocking result, and exit.
 
 A check **fails** in three cases, each reported as a result of the gate, located at the declaration of the check (`path:<configuration>#/checks/<name>`):
@@ -114,14 +114,16 @@ A check **fails** in three cases, each reported as a result of the gate, located
 | `check/missing-log` | the command exits with a declared status, but writes no log |
 | `check/invalid-log` | the log is not JSON, or breaks the profile |
 
-The runs of a failed check do not enter the merged log, since a partial log would mark its suppressions as stale.
+The runs of a failed check do not enter the merged log, since its log is absent, left by a crashed command, or unreadable.
+
+A check is **incomplete** when its log is valid but holds an incomplete run: a partial run, stopped by design, or a failed run, by which a crashed producer reports itself ([profile, section 3](profile.md#3-log-and-run)). The runs of an incomplete check enter the merged log, since their results are genuine findings. The gate also reports the check as a result of rule `check/incomplete`, located at its declaration, whose message names the tool of each incomplete run and the reasons that its notifications state. Without that result, a producer that reports its own crash and exits with a declared status would pass the gate.
 
 **Exit status.**
 
 | Status | Meaning |
 | --- | --- |
 | 0 | no result blocks |
-| 1 | at least one unsuppressed result blocks: a finding of a producer, a failed check or a stale suppression |
+| 1 | at least one unsuppressed result blocks: a finding of a producer, a failed or incomplete check, or a stale suppression |
 | 2 | the gate cannot run: the configuration or the suppressions file is invalid, or the merged log cannot be written |
 
 ## 4. Stale suppressions
@@ -130,7 +132,12 @@ A suppression is **stale** when it matches no result of the merged log. The gate
 
 A stale entry blocks because it is a standing permission: if the finding it named comes back, the entry would tolerate it again without review. Blocking keeps the suppressions file equal to the debts that exist, so that the file only shrinks.
 
-A failed check yields no run, so the gate cannot tell whether its findings persist. An unmatched entry is therefore stale only when its tool yielded a valid run, or when no check failed. Otherwise the entry is **unverified**: the gate counts it in its summary, and does not report it as stale. The failed check already blocks.
+Two cases leave the gate unable to tell whether the finding of an entry persists:
+
+- the tool of the entry yielded an incomplete run, which may have stopped before reaching the finding;
+- the tool of the entry yielded no run while a check failed, and the failed check may have been that of the tool.
+
+An unmatched entry in either case is **unverified**: the gate counts it in its summary, and does not report it as stale. Every other unmatched entry is stale. The failed or incomplete check already yields a result of the gate, judged by the policy.
 
 The results of the gate are never suppressed: their `suppressions` array is always empty.
 

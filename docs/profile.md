@@ -47,7 +47,10 @@ Each quotation carries one of three marks:
 | `sarifLog.runs` | required | one run per invocation of a producer; the gate adds one run of its own, of driver `elenchos` |
 | `run.tool.driver.name` | required | the tool name, matching `[a-z][a-z0-9-]*`; it is the first component of the identity |
 | `run.tool.driver.version` or `semanticVersion` | required | the version of the producer |
-| `run.tool.driver.rules` | optional | one `reportingDescriptor` per emitted `ruleId`, with `shortDescription` and `defaultConfiguration.level` |
+| `run.tool.driver.rules` | required | one `reportingDescriptor` per rule that the tool can emit, whether or not the run emits it, with `id`, `shortDescription` and `defaultConfiguration.level` |
+| `run.tool.driver.isComprehensive` | optional | `true`, since `rules` lists every rule |
+| `run.invocations` | required for an incomplete run | exactly one `invocation` declaring the failure ([section 3, incomplete runs](#3-log-and-run)); optional for a complete run |
+| `run.results` | required, except for a failed run whose analysis never began | every result detected by the run; absent, never `null`, when the analysis never began |
 | `run.columnKind` | required when `results` is non-empty | `"unicodeCodePoints"` for a Python producer, `"utf16CodeUnits"` for a TypeScript producer |
 | `run.originalUriBaseIds` | optional | `SRCROOT` mapped to the root of the consumer repository |
 | `run.automationDetails` | optional | unused by version 1 |
@@ -67,17 +70,51 @@ Each quotation carries one of three marks:
 - §3.19.8 [fetch]: "A toolComponent object SHALL contain a property named name"; §3.19.2 [fetch]: "At least one of version (§3.19.13) and semanticVersion (§3.19.12) SHOULD be present."
 - §3.18.1 [fetch]: "the post-processing tool SHOULD NOT alter any part of the tool object."
 
+**Rules of the driver.** The driver lists every rule that the tool can emit, including the rules that the run does not emit.
+
+- §3.19.23 [fetch]: "A toolComponent object MAY contain a property named rules whose value is an array of zero or more unique" "reportingDescriptor objects (§3.49) each of which provides information about an analysis rule" "supported by the tool component."
+- §3.19.30, NOTE [fetch]: "tools are permitted to emit rules (§3.19.23), notifications (§3.19.24), or taxa (§3.19.25) properties" "that contain only those items relevant to the current run."
+- §3.19.30 [fetch]: "A toolComponent object SHOULD contain a property named isComprehensive whose value is a Boolean that is true if the" "component contains complete information for the content types specified by contents and false otherwise." "If isComprehensive is absent, it SHALL default to false."
+
+The standard admits both a complete list and a list restricted to the run. The profile requires the complete list, for two reasons. First, the descriptors of a run then depend on the version of the tool alone, not on the findings of the run, as the discriminator does ([section 4.6](#46-partialfingerprints-and-fingerprints)). Second, a reader of the log learns which rules the tool evaluates, including those that found nothing. Each `ruleId` of a result names one descriptor of the list. The gate does not check the list, since neither the identity nor the verdict depends on it.
+
+**Incomplete runs.** A run is *complete* when the producer evaluated every rule on every target. Otherwise, it is *incomplete*, in one of two forms:
+
+- a *partial* run stops by design before the end of its analysis, for instance at the first failure of a producer whose stages each consume the output of the previous one;
+- a *failed* run stops because the producer crashed, or could not begin its analysis.
+
+The standard declares an incomplete analysis through the invocation of the run:
+
+- §3.14.11 [fetch]: "A run object MAY contain a property named invocations whose value is an array of zero or more invocation objects".
+- §3.20.14 [fetch]: "An invocation object SHALL contain a property named executionSuccessful whose value is a Boolean that is true if the" "engineering system that started the process knows that the analysis tool succeeded," "and false if the engineering system knows that the tool failed."
+- §3.20.21 [fetch]: "Each element of the array represents a runtime condition detected by the invoked process". Further: "The presence within this array of any notification object whose level property" "is "error" SHALL mean that the run failed." Further: "A SARIF consumer SHALL NOT assume that a failed run contains a complete set of analysis results."
+- §3.14.23 [fetch]: if the tool started "but failed to begin its analysis", `results` "MAY be present, and if present SHALL be null"; "In all other circumstances, results SHALL be present and SHALL contain all results detected by the tool."
+- Schema, `run.results` [fetch]: of type `"array"`, it "must be present (but may be empty) if a log file represents an actual scan."
+- Schema, `notification` [fetch]: `required` is `["message"]`; `level` takes `none`, `note`, `warning` or `error`, and defaults to `"warning"`.
+
+The standard attaches the consequence sought, results that a consumer must not take as complete, to a *failed* run only (§3.20.21). No property of the standard declares a run that succeeded but stopped early: `isComprehensive` describes the metadata of a component, not its results. Therefore, a partial run declares itself failed, as a crashed run does. The profile states:
+
+- an incomplete run holds `invocations` with exactly one invocation, whose `executionSuccessful` is `false`, and whose `toolExecutionNotifications` hold at least one notification of level `"error"` with a `message.text` stating why the analysis stopped;
+- an incomplete run whose analysis began, partial or failed, holds in `results` every result detected before the stop, as §3.14.23 requires;
+- a failed run whose analysis never began omits `results`. It never writes `null`, which the text admits but the schema excludes by typing `results` as an array;
+- a complete run either omits `invocations`, or holds one invocation whose `executionSuccessful` is `true` and which holds no notification of level `"error"`.
+
+A crashed producer reports itself in one of two ways. When it can still write its log, it writes a failed run, optionally with the `exception` of the notification, and exits with a status declared by the consumer. When it cannot, it writes no log or exits with an undeclared status, and the gate reports the check as failed ([section 3, run of the gate](#3-log-and-run)).
+
+The gate reads a run as incomplete when one of its invocations holds `executionSuccessful` false, or a notification of level `"error"`, since either declares a failed run (§3.20.14, §3.20.21). The results of an incomplete run enter the merged log. The [gate configuration](configuration.md#4-stale-suppressions) states how the gate judges the run and its suppressions.
+
 **Column kind.** Every producer reporting on text files writes `columnKind`.
 
 - §3.14.27 [p. 57]: "If a SARIF producer processes text artifacts and `theRun.results` (§3.14.23) is non-empty, the `run` object **SHALL** contain a property named `columnKind`".
 
-**Run of the gate.** The gate appends one run of driver `elenchos` to the merged log, after the runs of the producers. Its results have level `error`, an empty `suppressions` array, and one of four rules:
+**Run of the gate.** The gate appends one run of driver `elenchos` to the merged log, after the runs of the producers. Its results have level `error`, an empty `suppressions` array, and one of five rules:
 
 | `ruleId` | Resource and locus | Case |
 | --- | --- | --- |
 | `check/failed` | `path:<configuration>#/checks/<name>` | the earlier log of a check cannot be deleted, or its command cannot start or exits with an undeclared status |
 | `check/missing-log` | `path:<configuration>#/checks/<name>` | the command ran to completion, but wrote no log |
 | `check/invalid-log` | `path:<configuration>#/checks/<name>` | the log is not JSON, or breaks [section 5.6](#56-rejected-input) |
+| `check/incomplete` | `path:<configuration>#/checks/<name>` | the log is valid, but holds an incomplete run ([section 3, incomplete runs](#3-log-and-run)) |
 | `suppression/stale` | `path:<suppressions file>`, with the stale identity as discriminator | a suppression matches no result |
 
 A producer never names its driver `elenchos`. The [gate configuration](configuration.md#3-runner) states when each result is written.
@@ -95,9 +132,9 @@ A producer never names its driver `elenchos`. The [gate configuration](configura
 | `logicalLocations[0].name` | required | `<resource>` or `<resource>#<locus>` ([section 4.5](#45-logical-location-resource-and-locus)) |
 | `logicalLocations[0].kind` | optional | a JSON kind of §3.33.7 for a pointer locus, otherwise the locus type (`link`, `term`, …); excluded from the identity |
 | `locations[0].physicalLocation` | required when the resource has a file or a folder | [section 4.4](#44-physical-location) |
-| `partialFingerprints["discriminator/v1"]` | optional | written by the producer: the normalized offending content separating two findings at one locus |
+| `partialFingerprints["discriminator/v1"]` | optional | written by the producer: the normalized offending content separating two findings at one locus, derived from the result alone ([section 4.6](#46-partialfingerprints-and-fingerprints)) |
 | `fingerprints["elenchos/v1"]` | gate only | the identity of [section 5](#5-identity-string) |
-| `suppressions` | gate only | on every result of every run written by the gate ([section 4.7](#47-suppressions)) |
+| `suppressions` | gate only | never written by a producer; the gate adds it to every result of every run of the merged log ([section 4.7](#47-suppressions)) |
 | `baselineState` | absent | [section 4.8](#48-baselinestate) |
 | `properties` | optional | the payload of one tool, each name prefixed by the driver name |
 
@@ -148,6 +185,10 @@ The profile writes the physical location as follows:
 - `region` is present for a finding in a part of a file, and absent for a whole file or a folder;
 - `physicalLocation` is absent when the resource has no file, since the logical location suffices (§3.28.3).
 
+**Field absent from the record.** A finding on a field that the record does not hold has no node of its own. Its region is the region of the closest existing ancestor node, and is absent when that ancestor is the whole document. Its locus stays the JSON Pointer of the missing field ([section 4.5](#45-logical-location-resource-and-locus)). The absence of a field is detected in its parent, so the region of the parent is the region "where the result was detected" (§3.29.4). The locus names the missing field, so that two missing fields of one parent keep distinct identities.
+
+**File of a fetched source.** A finding on a file that exists only in a fetched dependency source is located where the consumer would materialize that file, relative to the root of the consumer. The URI of the artifact and the resource `path:` both name that path, even when the file is absent from the disk because the run stopped before materializing it. Therefore, the identity depends neither on a temporary staging path nor on the progress of the run. The path of materialization is fixed by the producer that materializes the sources.
+
 ### 4.5 Logical location: resource and locus
 
 - §3.28.4 [p. 120]: "If logical location information is available and the `physicalLocation` property (§3.28.3) is absent, `logicalLocations` **SHALL** be present and non-empty." The NOTE: "`logicalLocations` is an array because some logical locations can be expressed in more than one way. For example, the logical location of an element in an HTML document might be expressed by an XML Path expression such as `/html/body/img[1]` or by a CSS selector such as `#logo`."
@@ -168,8 +209,17 @@ The elements of `logicalLocations` are alternative expressions of *one* location
 **Locus.** The locus takes one of three forms:
 
 - the empty locus, which denotes the whole resource. It is also the deterministic fallback when malformed content supplies no locus;
-- a JSON Pointer (RFC 6901), opening on `/`, for a key path in structured data; each `~` is followed by `0` or `1`. A field path of Ekphrasis converts to a pointer by the tested conversion of the addressing specification of Anagraphe (`relations[2].target` becomes `/relations/2/target`). The pointer to the whole document, the empty string in RFC 6901, coincides with the empty locus;
+- a JSON Pointer (RFC 6901), opening on `/`, for a key path in structured data; each `~` is followed by `0` or `1`. A field path converts to a pointer as stated below. The pointer to the whole document, the empty string in RFC 6901, coincides with the empty locus;
 - a typed locus `<type>:<value>`, with a type from a closed list: `link:<target as written>`, `task:<id>`, `slot:<name>`, `term:<glossary id>`, `symbol:<notation id>`.
+
+**Field paths.** A field path, such as a field path of Ekphrasis, is a sequence of segments, each a key or an index. It converts to a JSON Pointer as follows:
+
+- the empty sequence, the whole document, converts to the empty string;
+- each segment contributes `/` followed by its token;
+- the token of an index is its decimal form, without leading zero (RFC 6901, section 4);
+- the token of a key is the key with each `~` replaced by `~0`, and then each `/` replaced by `~1` (RFC 6901, section 3). The order matters: the reverse order would turn `/` into `~01`.
+
+For example, `relations[2].target` converts to `/relations/2/target`, the key `a/b` to `/a~1b`, the key `c~1d` to `/c~01d`, and the empty key to `/`. A key written in digits and an index of equal value yield one token; they cannot collide, since one parent is either a mapping or a sequence. A producer converts the segments, not the printed form of the path, since a printed form need not quote every key that holds `.`, `[` or `"`. This conversion moves to the addressing specification of Anagraphe once that specification is published; the profile will then cite it.
 
 A new locus type takes a new version of the profile. The types `term` and `symbol` extend the list of the [decision on stable checker finding identities](https://github.com/esther-poniatowski/geonexus/blob/main/docs/_decisions/stable-checker-finding-identities.md), which admits key paths, task identifiers, link targets and generated slots.
 
@@ -186,9 +236,10 @@ A new locus type takes a new version of the profile. The types `term` and `symbo
 - Appendix B [p. 197]: "A result management system **SHOULD NOT** include an absolute line number (or an absolute byte location in a binary artifact) in its fingerprint computation."
 - Schema: both objects are `"type": "object"` with `"additionalProperties": { "type": "string" }`; no pattern constrains the keys.
 
-The profile draws three rules from these clauses:
+The profile draws four rules from these clauses:
 
 - **Partial fingerprints.** A producer writes `partialFingerprints["discriminator/v1"]` only, and only when the discriminator is non-empty. The tool, the resource and the locus can be deduced from `run.tool.driver.name` and from the logical location, so Appendix B excludes them.
+- **Discriminator.** A producer derives the discriminator from the result alone: its rule and its own offending content, such as a keyword, an identifier or a matched form. It never derives the discriminator from other results of the log: it does not write one only when two results share a locus, and does not number occurrences. Therefore, the identity of a finding stays stable when other findings appear or disappear, as §3.27.17 requires a partial fingerprint to contribute to a "stable, unique identity". The gate alone numbers identical occurrences ([section 5.3](#53-string-and-ordinal)).
 - **Fingerprint.** The gate writes `fingerprints["elenchos/v1"]` on ingesting the logs, as a result management system may. A producer, a direct producer, does not.
 - **Keys.** Every key of either object is a versioned hierarchical string. The schema does not check the key format, so the gate does. The profile also requires each component of a key to be non-empty, a restriction whose agreement with the grammar of §3.5.4 is **[unverified]**.
 
@@ -204,8 +255,8 @@ The profile draws three rules from these clauses:
 
 A baseline of the consumer lists tolerated findings, and may only shrink. Each entry is an accepted suppression held in an external store, the [suppressions file](configuration.md#2-suppressions-file) of the consumer. The profile therefore states:
 
-- a producer writes no suppression in version 1;
-- the gate writes `suppressions` on every result of every run of the log it emits, as an empty array when the result is unsuppressed. That satisfies the all-or-none rule of §3.27.23 in every run;
+- a producer writes no `suppressions` property, neither an array, even empty, nor `null`. The gate rejects a result that holds one ([section 5.6](#56-rejected-input));
+- the gate adds `suppressions` to every result of every run of the merged log: the runs of the producers and its own run. The array is empty when the result is unsuppressed. That satisfies the all-or-none rule of §3.27.23 in every run;
 - a baseline entry yields `{"kind": "external", "status": "accepted", "justification": "<reason>"}`;
 - `status` is always written, since the meaning of its absence is not stated;
 - `justification` is always written, since the decision on stable checker finding identities requires each baseline entry to state its reason;
@@ -298,7 +349,8 @@ The rules of the verdict are:
 
 - a log that is not an object of `version` `"2.1.0"` holding a non-empty array of runs;
 - a run whose driver name does not match the form of section 3, or is `elenchos`;
-- a run without an array of `results`;
+- a run without an array of `results`, unless it declares an incomplete run ([section 3, incomplete runs](#3-log-and-run)). The gate cannot tell a partial run from a failed one, so it admits an absent `results` in either;
+- an `invocations` that is not an array of objects each holding a boolean `executionSuccessful`, or a `toolExecutionNotifications` that is not an array of objects whose `level`, when present, is `"none"`, `"note"`, `"warning"` or `"error"`;
 - a result whose `level` is absent or not one of `"error"`, `"warning"`, `"note"`, or that holds no `message.text`;
 - a result holding `suppressions` or `fingerprints["elenchos/v1"]`, which the gate alone writes.
 
@@ -313,7 +365,7 @@ The test vectors are published data files of the repository, read by its test su
 - [identity vectors](../specs/vectors/identity.json): each vector holds a SARIF log and the expected identity of each of its results, in the order of runs and results;
 - [rejected vectors](../specs/vectors/rejected.json): each vector holds a log that the gate must reject.
 
-Each vector states its case in `case` and `description`. Non-ASCII and decomposed characters are written as JSON escapes (`́`), so that a reader sees which code points a vector holds. The expected values were computed by a reference script independent of the implementation of Elenchos.
+Each vector states its case in `case` and `description`. Non-ASCII and decomposed characters are written as JSON escapes (`́`), so that a reader sees which code points a vector holds. The expected values were computed by a reference script independent of the implementation of Elenchos, except those of the cases `missing-field`, `partial-run` and `failed-run`, which were computed by hand.
 
 ## 7. Unverified and open points
 
@@ -321,14 +373,15 @@ Unverified clauses:
 
 - §3.49.3, `reportingDescriptor.id`: only the schema description, "A stable, opaque identifier for the report", was read **[unverified]**;
 - `reportingDescriptor.deprecatedIds`, which would carry a rename of a rule within one tool **[unverified]**;
-- `invocation.ruleConfigurationOverrides` (§3.20.5), for recording the severities of the consumer, and `invocation.toolExecutionNotifications`, for a crash of a producer **[unverified]**.
+- `invocation.ruleConfigurationOverrides` (§3.20.5), for recording the severities of the consumer **[unverified]**;
+- §3.58, the `notification` object: only the schema was read, since the text read through the fetch tool ends before that clause **[unverified]**.
 
 Open points:
 
 - the resource of a finding in a composed project (a submodule): relative to the repository of the gate, or prefixed with the repository identifier of a logical target of Anagraphe;
 - the locus of prose rules (Hermeneia, glossary occurrences): a locus type `section:` with a sentence as discriminator, against the term with an ordinal, which matches the current counts.
 
-A crash of a producer is reported as a result of the run of the gate ([section 3](#3-log-and-run)), as the [decision on the runner and the suppressions](adr/runner-and-suppressions.md) records.
+A crashed producer reports itself as a failed run when it can still write its log, and the gate reports a crash that leaves no valid log as a result of its own run ([section 3](#3-log-and-run)), as the [decision on the runner and the suppressions](adr/runner-and-suppressions.md) records.
 
 ---
 

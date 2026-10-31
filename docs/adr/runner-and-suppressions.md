@@ -26,7 +26,9 @@ The [decision on tool roles](https://github.com/esther-poniatowski/geonexus/blob
 
 **Failures as results of the gate.** A check that cannot start, exits with an undeclared status, writes no log or writes an invalid log yields a result of the run of the gate, located at its declaration, and its runs are discarded. ^failures
 
-**Stale entries block.** An entry matching no result yields a result of rule `suppression/stale` at level `error`, judged by the policy like any result. An entry whose tool yielded no valid run while a check failed is unverified, not stale. ^stale
+**Incomplete runs enter the log.** A valid log holding a partial or failed run enters the merged log with the results it holds, and the gate adds a result of rule `check/incomplete` at the declaration of the check. ^incomplete
+
+**Stale entries block.** An entry matching no result yields a result of rule `suppression/stale` at level `error`, judged by the policy like any result. An entry whose tool yielded an incomplete run, or yielded no run while a check failed, is unverified, not stale. ^stale
 
 **Exit status.** `elenchos check` exits 0 when no result blocks, 1 when an unsuppressed result blocks, and 2 when the configuration or the suppressions file is invalid or the log cannot be written. ^exit
 
@@ -37,6 +39,7 @@ The [decision on tool roles](https://github.com/esther-poniatowski/geonexus/blob
 - **A baseline only shrinks.** A tolerated finding that disappears must leave the suppressions file, or the entry would tolerate the same finding again when it returns.
 - **A ruleId is scoped to its tool** (profile, section 4.1). Therefore, a rule of the policy is keyed by the tool and the `ruleId`.
 - **Producers exit 1 on findings.** The runner of Geonexus, Ekthesis and Anagraphe exit with status 1 when a run reports findings; the runner of Geonexus treats any other non-zero status as a crash.
+- **A run may stop by design.** Kleisis stops at its first failure, since each stage consumes the output of the previous one. The profile declares such a run, and a crash that the producer reports itself, as a failed run.
 - **Every result of the gate carries an identity.** The gate builds identities from a resource and a semantic locus, so its own results need a stable locus too.
 
 ## Options weighed
@@ -85,9 +88,17 @@ The [decision on tool roles](https://github.com/esther-poniatowski/geonexus/blob
 
 | Option | Benefit | Reason it is not taken |
 | ------ | ------- | ---------------------- |
-| `invocations[].toolExecutionNotifications` | A field of SARIF made for tool failures | A notification is not a result: it carries no identity and no level, so the verdict would need a second channel; the clause is unverified (profile, section 7) |
+| `invocations[].toolExecutionNotifications` in the run of the gate | A field of SARIF made for tool failures | A notification is not a result: it carries no identity and no level of the policy, so the verdict would need a second channel |
 | The exit status alone | Simple | A viewer of the log cannot see which check failed |
 | **A result of the run of the gate, at the declaration of the check** | One channel for every verdict; visible in the log; the consumer can relax it by a rule of the policy | Taken |
+
+**Handling of an incomplete run.**
+
+| Option | Benefit | Reason it is not taken |
+| ------ | ------- | ---------------------- |
+| Discard its runs, as for a failed check | One treatment for every failure | Drops genuine findings, and the suppressions that match them would turn unverified for nothing |
+| Keep its runs, and add no result of the gate | No extra result | A producer reporting its own crash with a declared exit status, and no result, would pass the gate |
+| **Keep its runs, add `check/incomplete`, and leave the unmatched entries of its tool unverified** | The findings stay visible; a self-reported crash blocks; no entry turns stale on a run that did not reach its finding | Taken. A consumer relaxing `elenchos\|check/incomplete` relaxes it for every tool, the self-reported crashes included |
 
 **Policy of a stale entry.**
 
@@ -107,7 +118,7 @@ The [decision on tool roles](https://github.com/esther-poniatowski/geonexus/blob
 
 ## Consequences
 
-- **Findings profile.** Section 1 and section 5.6 add the rules of the verdict to the rejected input: a `level` among the three admitted values, a `message.text`, an array of results, and no object written by the gate only. Section 3 describes the run of the gate and its four rules; section 4.7 refers to the suppressions file and its properties; the open point on a crash of a producer is settled.
+- **Findings profile.** Section 1 and section 5.6 add the rules of the verdict to the rejected input: a `level` among the three admitted values, a `message.text`, an array of results unless the run failed, well-formed invocations, and no object written by the gate only. Section 3 describes incomplete runs, and the run of the gate with its five rules; section 4.7 refers to the suppressions file and its properties; the open point on a crash of a producer is settled.
 - **Decision on tool roles.** Its section "Findings" and item 5 of "Roles" hold as written. The hook of Geonexus invokes `elenchos check --config <path>` once its producers write the profile; its configuration replaces `config/checks.yaml` under `baselines` and `gating`. The baselines of `specs/baselines/` convert into one suppressions file through the ordinal.
 - **Scoped runs.** The runner of Geonexus checks the files changed since the last commit. `elenchos check` always runs every check in full, since a scoped run would report the entries of unscanned files as stale. A scoped run takes a later decision.
 - **Rename maps.** The maps of profile section 5.5 are not yet keys of the configuration; they take version 2 of the format.
