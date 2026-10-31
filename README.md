@@ -10,7 +10,7 @@ Gates a repository on the findings of its checks: a profile of SARIF 2.1.0, stab
 
 ## Overview
 
-A repository runs checks from several tools, and each tool reports its findings in a format of its own. `elenchos` fixes one profile of SARIF 2.1.0 that every producer of findings writes. It gives each finding an identity that survives textual edits, and it decides from the configuration of the consumer which findings block a commit.
+A repository runs checks from several tools, and each tool reports its findings in a format of its own. `elenchos` fixes one profile of SARIF 2.1.0 that every producer of findings writes. It gives each finding an identity that survives textual edits, runs the checks that the consumer declares, and decides from the configuration of the consumer which findings block a commit.
 
 ### Motivation
 
@@ -23,7 +23,17 @@ Two limitations are observed when each checker reports and tolerates findings on
 
 ### Status
 
-Pre-alpha. The package provides the identity builder of the profile: it builds the canonical identity of a finding from its components, numbers identical occurrences, parses an identity back, and writes the identity on SARIF results held as plain dictionaries. The runner of the checks and the baselines come later.
+Pre-alpha. The package provides the identity builder of the profile and the runner of the gate. The identity builder builds the canonical identity of a finding from its components, numbers identical occurrences, and parses an identity back. The runner executes the checks declared by a consumer, merges their logs into one SARIF log, applies the suppressions of the consumer, and exits non-zero on an unsuppressed blocking result. No command yet converts the legacy count baselines into suppressions.
+
+### Usage
+
+A consumer declares its checks, its severity policy and its suppressions file in one TOML configuration, and passes its path:
+
+```sh
+elenchos check --config config/elenchos.toml
+```
+
+The exit status is 0 when no result blocks, 1 when an unsuppressed result blocks, and 2 when an input is invalid. The [gate configuration](docs/configuration.md) specifies both files and the behaviour of the runner.
 
 ---
 

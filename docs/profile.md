@@ -16,7 +16,7 @@ The profile has version 1, named by the key `elenchos/v1` of the identity.
 Two roles write a log:
 
 - a **producer** is a checker of a domain tool, a direct SARIF producer in the sense of the standard. It writes one run per invocation, and imports no package of Elenchos;
-- the **gate** is Elenchos. It reads the logs of the producers, acts as a post-processor and as a result management system, and adds the identity and the suppressions of each result.
+- the **gate** is Elenchos. It runs the checks declared by the consumer ([gate configuration](configuration.md)), reads the logs of the producers, acts as a post-processor and as a result management system, and adds the identity and the suppressions of each result.
 
 The status column of each table takes four values:
 
@@ -25,7 +25,7 @@ The status column of each table takes four values:
 - *absent*: the object is never written in version 1;
 - *gate only*: the gate writes the object, and a producer never does.
 
-A producer conforms when its log satisfies sections 3 and 4, and when the test vectors of [section 6](#6-test-vectors) yield their expected identities from its output. The gate rejects a log that breaks a rule on which the identity depends, as listed in [section 5.6](#56-rejected-input).
+A producer conforms when its log satisfies sections 3 and 4, and when the test vectors of [section 6](#6-test-vectors) yield their expected identities from its output. The gate rejects a log that breaks a rule on which the identity or the verdict depends, as listed in [section 5.6](#56-rejected-input).
 
 ## 2. Sources and marks
 
@@ -70,6 +70,17 @@ Each quotation carries one of three marks:
 **Column kind.** Every producer reporting on text files writes `columnKind`.
 
 - §3.14.27 [p. 57]: "If a SARIF producer processes text artifacts and `theRun.results` (§3.14.23) is non-empty, the `run` object **SHALL** contain a property named `columnKind`".
+
+**Run of the gate.** The gate appends one run of driver `elenchos` to the merged log, after the runs of the producers. Its results have level `error`, an empty `suppressions` array, and one of four rules:
+
+| `ruleId` | Resource and locus | Case |
+| --- | --- | --- |
+| `check/failed` | `path:<configuration>#/checks/<name>` | the earlier log of a check cannot be deleted, or its command cannot start or exits with an undeclared status |
+| `check/missing-log` | `path:<configuration>#/checks/<name>` | the command ran to completion, but wrote no log |
+| `check/invalid-log` | `path:<configuration>#/checks/<name>` | the log is not JSON, or breaks [section 5.6](#56-rejected-input) |
+| `suppression/stale` | `path:<suppressions file>`, with the stale identity as discriminator | a suppression matches no result |
+
+A producer never names its driver `elenchos`. The [gate configuration](configuration.md#3-runner) states when each result is written.
 
 ## 4. Result
 
@@ -191,13 +202,15 @@ The profile draws three rules from these clauses:
 - §3.35.6 [fetch]: `justification` is "a user-supplied string that explains why the result was suppressed." Schema: `suppression.required` is `["kind"]`.
 - §3.35.3 says nothing about an absent `status` [p. 142]: whether a suppression without `status` counts as accepted is **[unverified]**.
 
-A baseline of the consumer lists tolerated findings, and may only shrink. Each entry is an accepted suppression held in an external store, the baseline file. The profile therefore states:
+A baseline of the consumer lists tolerated findings, and may only shrink. Each entry is an accepted suppression held in an external store, the [suppressions file](configuration.md#2-suppressions-file) of the consumer. The profile therefore states:
 
 - a producer writes no suppression in version 1;
 - the gate writes `suppressions` on every result of every run of the log it emits, as an empty array when the result is unsuppressed. That satisfies the all-or-none rule of §3.27.23 in every run;
 - a baseline entry yields `{"kind": "external", "status": "accepted", "justification": "<reason>"}`;
 - `status` is always written, since the meaning of its absence is not stated;
-- `justification` is always written, since the decision on stable checker finding identities requires each baseline entry to state its reason.
+- `justification` is always written, since the decision on stable checker finding identities requires each baseline entry to state its reason;
+- the date and the author of an entry, when given, go to the properties `elenchos/date` and `elenchos/author` of the suppression ([section 4.9](#49-properties));
+- an entry matching no result is stale, and the gate reports it as a result of its own run ([section 3](#3-log-and-run)), so that the file only shrinks.
 
 ### 4.8 `baselineState`
 
@@ -272,7 +285,7 @@ The gate reads two declared maps from the configuration of the consumer, and app
 
 ### 5.6 Rejected input
 
-The gate rejects a result that prevents the construction of its identity:
+The gate rejects a log that prevents the construction of an identity, or the verdict on a result. The rules of the identity are:
 
 - a run without `tool.driver.name`;
 - a result without `ruleId`;
@@ -280,6 +293,14 @@ The gate rejects a result that prevents the construction of its identity:
 - a `logicalLocations` array not holding exactly one object with a `name`;
 - a key of `fingerprints` or `partialFingerprints` that is not a versioned hierarchical string, or a value that is not a string;
 - a component outside its form, or a name that breaks [section 4.5](#45-logical-location-resource-and-locus).
+
+The rules of the verdict are:
+
+- a log that is not an object of `version` `"2.1.0"` holding a non-empty array of runs;
+- a run whose driver name does not match the form of section 3, or is `elenchos`;
+- a run without an array of `results`;
+- a result whose `level` is absent or not one of `"error"`, `"warning"`, `"note"`, or that holds no `message.text`;
+- a result holding `suppressions` or `fingerprints["elenchos/v1"]`, which the gate alone writes.
 
 ### 5.7 Excluded attributes
 
@@ -305,8 +326,9 @@ Unverified clauses:
 Open points:
 
 - the resource of a finding in a composed project (a submodule): relative to the repository of the gate, or prefixed with the repository identifier of a logical target of Anagraphe;
-- the locus of prose rules (Hermeneia, glossary occurrences): a locus type `section:` with a sentence as discriminator, against the term with an ordinal, which matches the current counts;
-- a crash of a producer: a result of the run of the gate, or a tool execution notification.
+- the locus of prose rules (Hermeneia, glossary occurrences): a locus type `section:` with a sentence as discriminator, against the term with an ordinal, which matches the current counts.
+
+A crash of a producer is reported as a result of the run of the gate ([section 3](#3-log-and-run)), as the [decision on the runner and the suppressions](adr/runner-and-suppressions.md) records.
 
 ---
 
