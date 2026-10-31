@@ -20,6 +20,10 @@ write_fingerprint(result, identity) -> None
     Write the identity of a result in `fingerprints["elenchos/v1"]`.
 write_identity(result, identity) -> None
     Write the identity and the discriminator of a result.
+run_complete(run) -> bool
+    Whether a run declares that its analysis covered every rule on every target.
+stop_reasons(run) -> list[str]
+    Messages of the notifications of level `error` by which a run declares that it failed.
 check_log(log) -> None
     Check that a log written by a producer satisfies the profile.
 fingerprint_log(log) -> dict
@@ -47,6 +51,9 @@ SARIF_VERSION = "2.1.0"
 
 LEVELS = ("error", "warning", "note")
 """Values of `result.level` admitted by the profile."""
+
+NOTIFICATION_LEVELS = ("none", "note", "warning", "error")
+"""Values of `notification.level` admitted by SARIF; an absent level defaults to `warning`."""
 
 GATE_TOOL = "elenchos"
 """Driver name of the run that the gate adds to the log; a producer never writes it."""
@@ -221,6 +228,114 @@ def write_identity(result: JsonObject, identity: Identity) -> None:
         result.setdefault("partialFingerprints", {})[DISCRIMINATOR_KEY] = identity.discriminator
 
 
+def _invocations(run: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """
+    Return the invocations of a run, after checking the members on which the verdict depends.
+
+    Raises
+    ------
+    ProfileError
+        If `invocations` is not an array of objects each holding a boolean `executionSuccessful`,
+        or if `toolExecutionNotifications` is not an array of objects whose `level`, when present,
+        is a level of SARIF.
+    """
+    invocations = run.get("invocations", [])
+    if not isinstance(invocations, list):
+        raise ProfileError("run invocations is not an array")
+    for invocation in invocations:
+        if not isinstance(invocation, Mapping):
+            raise ProfileError("invocation is not an object")
+        if not isinstance(invocation.get("executionSuccessful"), bool):
+            raise ProfileError("invocation holds no boolean executionSuccessful")
+        notifications = invocation.get("toolExecutionNotifications", [])
+        if not isinstance(notifications, list):
+            raise ProfileError("invocation toolExecutionNotifications is not an array")
+        for notification in notifications:
+            if not isinstance(notification, Mapping):
+                raise ProfileError("tool execution notification is not an object")
+            level = notification.get("level", "warning")
+            if level not in NOTIFICATION_LEVELS:
+                raise ProfileError(
+                    f"notification level {level!r} is not one of {list(NOTIFICATION_LEVELS)}"
+                )
+    return invocations
+
+
+def _error_notifications(run: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """Return the tool execution notifications of level `error` of every invocation of a run."""
+    return [
+        notification
+        for invocation in _invocations(run)
+        for notification in invocation.get("toolExecutionNotifications", [])
+        if notification.get("level", "warning") == "error"
+    ]
+
+
+def run_complete(run: Mapping[str, Any]) -> bool:
+    """
+    Whether a run declares that its analysis covered every rule on every target.
+
+    SARIF expresses an incomplete analysis only as a failed run (§3.20.21): a run is incomplete
+    when one of its invocations holds `executionSuccessful` false, or a tool execution
+    notification of level `error`. A run holding no invocation is complete.
+
+    Parameters
+    ----------
+    run : Mapping[str, Any]
+        SARIF `run` object.
+
+    Returns
+    -------
+    bool
+        False for a partial run, stopped by design, and for a failed run; True otherwise.
+
+    Raises
+    ------
+    ProfileError
+        If the invocations of the run break the profile.
+
+    Examples
+    --------
+    >>> run_complete({"results": []})
+    True
+    >>> run_complete({"invocations": [{"executionSuccessful": False}]})
+    False
+    >>> notification = {"level": "error", "message": {"text": "stopped"}}
+    >>> run_complete(
+    ...     {"invocations": [{"executionSuccessful": True,
+    ...                       "toolExecutionNotifications": [notification]}]}
+    ... )
+    False
+    """
+    if any(not invocation["executionSuccessful"] for invocation in _invocations(run)):
+        return False
+    return not _error_notifications(run)
+
+
+def stop_reasons(run: Mapping[str, Any]) -> list[str]:
+    """
+    Return the messages of the notifications of level `error` by which a run declares a failure.
+
+    Parameters
+    ----------
+    run : Mapping[str, Any]
+        SARIF `run` object.
+
+    Returns
+    -------
+    list[str]
+        The `message.text` of each tool execution notification of level `error`, in the order of
+        the invocations; a notification without text is skipped.
+    """
+    reasons: list[str] = []
+    for notification in _error_notifications(run):
+        message = notification.get("message")
+        text = message.get("text") if isinstance(message, Mapping) else None
+        if isinstance(text, str):
+            reasons.append(text)
+    return reasons
+
+
 def _check_result(result: Any, tool: str) -> None:
     """Raise `ProfileError` unless a producer result satisfies the profile."""
     if not isinstance(result, Mapping):
@@ -245,8 +360,9 @@ def check_log(log: Any) -> None:
     Check that a log written by a producer satisfies the profile.
 
     The rules checked are those on which the identity depends, and those on which the verdict of
-    the gate depends: the level of each result, and the absence of every object written by the
-    gate only.
+    the gate depends: the level of each result, the absence of every object written by the gate
+    only, and the invocations by which a run declares that it is incomplete. A failed run may omit
+    `results`, since its analysis may never have begun (SARIF §3.14.23).
 
     Parameters
     ----------
@@ -257,9 +373,10 @@ def check_log(log: Any) -> None:
     ------
     ProfileError
         If the log is not an object of version `2.1.0` holding a non-empty array of runs; if a run
-        names no driver matching the tool form, names the driver of the gate, or holds no array of
-        results; or if a result breaks the profile (see `identity_of`), carries no admitted
-        `level`, no `message.text`, or a `suppressions` array or identity written by the producer.
+        names no driver matching the tool form, names the driver of the gate, holds malformed
+        invocations (see `run_complete`), or holds no array of results while declaring no failure;
+        or if a result breaks the profile (see `identity_of`), carries no admitted `level`, no
+        `message.text`, or a `suppressions` array or identity written by the producer.
     """
     if not isinstance(log, Mapping):
         raise ProfileError("log is not an object")
@@ -277,9 +394,12 @@ def check_log(log: Any) -> None:
             raise ProfileError(f"run driver name {tool!r} does not match {TOOL_PATTERN.pattern}")
         if tool == GATE_TOOL:
             raise ProfileError(f"run names the driver {GATE_TOOL!r} of the gate")
+        complete = run_complete(run)
+        if "results" not in run and not complete:
+            continue
         results = run.get("results")
         if not isinstance(results, list):
-            raise ProfileError("run holds no array of results")
+            raise ProfileError("run holds no array of results, and declares no failure")
         for result in results:
             _check_result(result, tool)
 

@@ -25,19 +25,26 @@ def result(
     }
 
 
-def write(tool: str, results: list[dict[str, Any]], status: int = 0) -> None:
-    """Write a log of one run of `tool` to the path given as first argument, then exit."""
-    log = {
-        "version": "2.1.0",
-        "runs": [
-            {
-                "tool": {"driver": {"name": tool, "version": "1.0.0"}},
-                "columnKind": "unicodeCodePoints",
-                "results": results,
-            }
-        ],
+def write(
+    tool: str,
+    results: list[dict[str, Any]] | None,
+    status: int = 0,
+    invocation: dict[str, Any] | None = None,
+) -> None:
+    """Write a log of one run of `tool` to the path given as last argument, then exit.
+
+    The run omits `results` when they are None, and holds `invocation` as its single invocation
+    when one is given."""
+    run: dict[str, Any] = {
+        "tool": {"driver": {"name": tool, "version": "1.0.0"}},
+        "columnKind": "unicodeCodePoints",
     }
-    target = Path(sys.argv[1])
+    if invocation is not None:
+        run["invocations"] = [invocation]
+    if results is not None:
+        run["results"] = results
+    log = {"version": "2.1.0", "runs": [run]}
+    target = Path(sys.argv[-1])
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(log), encoding="utf-8")
     sys.exit(status)

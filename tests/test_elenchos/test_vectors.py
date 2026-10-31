@@ -8,7 +8,7 @@ import pytest
 
 from elenchos.errors import ProfileError
 from elenchos.identity import Identity
-from elenchos.sarif import FINGERPRINT_KEY, fingerprint_log
+from elenchos.sarif import FINGERPRINT_KEY, check_log, fingerprint_log
 
 VECTORS = Path(__file__).parents[2] / "specs" / "vectors"
 IDENTITY_VECTORS: list[dict[str, Any]] = json.loads((VECTORS / "identity.json").read_text())
@@ -41,7 +41,13 @@ def test_vector_identities_round_trip(vector: dict[str, Any]) -> None:
 def test_rejected_vector_raises(vector: dict[str, Any]) -> None:
     """Each negative vector breaks the profile, and the gate rejects it."""
     with pytest.raises(ProfileError):
-        fingerprint_log(vector["log"])
+        check_log(vector["log"])
+
+
+@pytest.mark.parametrize("vector", IDENTITY_VECTORS, ids=lambda vector: vector["case"])
+def test_identity_vector_is_accepted(vector: dict[str, Any]) -> None:
+    """Each identity vector satisfies the profile, so the gate accepts it."""
+    check_log(vector["log"])
 
 
 def test_moved_line_keeps_the_identity() -> None:

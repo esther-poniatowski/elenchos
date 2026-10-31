@@ -4,14 +4,15 @@ Runner of the gate: run the declared checks, merge their logs, apply suppression
 The runner executes each check of a configuration, reads the SARIF log that the check writes, and
 validates it against the findings profile. It merges the valid runs into one log, builds the
 identity of every result, applies the suppressions of the consumer, and adds one run of its own,
-of driver `elenchos`, holding a result for each check that failed and for each stale suppression.
+of driver `elenchos`, holding a result for each check that failed, for each check whose log holds
+an incomplete run, and for each stale suppression.
 A result blocks when it is unsuppressed and its level is blocking under the policy of the consumer.
 The behaviour is specified in `docs/configuration.md`.
 
 Classes
 -------
 Failure
-    The reason for which one check yields no valid log.
+    The reason for which one check yields no valid log, or an incomplete one.
 CheckOutcome
     The valid runs of one check, or its failure.
 Finding
@@ -48,6 +49,8 @@ from .sarif import (
     check_log,
     fingerprint_log,
     location_name,
+    run_complete,
+    stop_reasons,
     write_identity,
 )
 from .suppressions import Suppression
@@ -67,6 +70,10 @@ CHECK_MISSING_LOG = "check/missing-log"
 CHECK_INVALID_LOG = "check/invalid-log"
 """Rule of the gate: the log of a check is not JSON, or breaks the findings profile."""
 
+CHECK_INCOMPLETE = "check/incomplete"
+"""Rule of the gate: the valid log of a check holds a run declaring that its analysis is partial or
+failed."""
+
 SUPPRESSION_STALE = "suppression/stale"
 """Rule of the gate: a suppression matches no result of the merged log."""
 
@@ -77,6 +84,10 @@ GATE_RULES = {
     ),
     CHECK_MISSING_LOG: "The command of a check ran to completion, but wrote no log.",
     CHECK_INVALID_LOG: "The log of a check is not JSON, or breaks the findings profile.",
+    CHECK_INCOMPLETE: (
+        "The log of a check holds a run declaring that its analysis is partial or failed, so its "
+        "results may be incomplete."
+    ),
     SUPPRESSION_STALE: "A suppression matches no result, so the suppressions file must shrink.",
 }
 """Short description of each rule of the gate, written in the descriptors of its run."""
@@ -88,7 +99,7 @@ GATE_LEVEL = "error"
 @dataclass(frozen=True)
 class Failure:
     """
-    The reason for which one check yields no valid log.
+    The reason for which one check yields no valid log, or a valid log holding an incomplete run.
 
     Attributes
     ----------
@@ -163,8 +174,8 @@ class Report:
     findings : tuple[Finding, ...]
         Verdict on each result, in the order of the log.
     unverified : tuple[str, ...]
-        Identities of the suppressions that could not be checked, since their tool yielded no
-        valid run while a check failed.
+        Identities of the unmatched suppressions that could not be checked: their tool yielded an
+        incomplete run, or yielded no run while a check failed.
     """
 
     log: JsonObject
@@ -283,21 +294,26 @@ def _gate_run(results: list[JsonObject]) -> JsonObject:
 def _stale(
     suppressions: Mapping[str, Suppression],
     matched: set[str],
-    tools: set[str],
-    complete: bool,
+    runs: Sequence[JsonObject],
+    checks_valid: bool,
 ) -> tuple[list[str], list[str]]:
     """
     Split the unmatched suppressions into stale and unverified entries.
 
-    An unmatched entry is stale when its tool yielded a valid run, or when every check yielded a
-    valid log. Otherwise, a failed check may have held its finding, and the entry is unverified.
+    An unmatched entry is unverified when its tool yielded an incomplete run, since the finding may
+    lie beyond the point where the run stopped. Otherwise, it is stale when its tool yielded a
+    complete run, or when every check yielded a valid log. An entry whose tool yielded no run while
+    a check failed is unverified, since the failed check may have held its finding.
     """
+    tools = {run["tool"]["driver"]["name"] for run in runs}
+    incomplete = {run["tool"]["driver"]["name"] for run in runs if not run_complete(run)}
     stale: list[str] = []
     unverified: list[str] = []
     for identity in suppressions:
         if identity in matched:
             continue
-        if complete or Identity.parse(identity).tool in tools:
+        tool = Identity.parse(identity).tool
+        if tool not in incomplete and (checks_valid or tool in tools):
             stale.append(identity)
         else:
             unverified.append(identity)
@@ -329,27 +345,45 @@ def _verdict(
     )
 
 
+def _incompleteness(outcome: CheckOutcome) -> Failure | None:
+    """
+    Return the incompleteness of the valid log of a check, or None when every run is complete.
+
+    The message names the tool of each incomplete run, followed by the messages of its
+    notifications of level `error`.
+    """
+    parts: list[str] = []
+    for run in outcome.runs:
+        if not run_complete(run):
+            tool = run["tool"]["driver"]["name"]
+            reasons = "; ".join(stop_reasons(run)) or "executionSuccessful is false"
+            parts.append(f"run of {tool} is incomplete: {reasons}")
+    return Failure(CHECK_INCOMPLETE, "; ".join(parts)) if parts else None
+
+
 def _gate_results(
     configuration: Configuration, outcomes: Sequence[CheckOutcome], stale: Sequence[str]
 ) -> list[JsonObject]:
     """
-    Build the results of the gate: one per failed check, then one per stale suppression.
+    Build the results of the gate: one per failed or incomplete check, then one per stale
+    suppression.
 
-    A failed check is located at its declaration, the pointer `/checks/<name>` of the
-    configuration file. A stale suppression is located at the suppressions file, with its identity
-    as discriminator.
+    A failed or incomplete check is located at its declaration, the pointer `/checks/<name>` of
+    the configuration file. A stale suppression is located at the suppressions file, with its
+    identity as discriminator.
     """
     results: list[JsonObject] = []
     config_uri = configuration.relative(configuration.path)
     for outcome in outcomes:
-        if outcome.failure is not None:
+        failure = outcome.failure or _incompleteness(outcome)
+        if failure is not None:
             identity = Identity(
                 GATE_TOOL,
-                outcome.failure.rule_id,
+                failure.rule_id,
                 f"path:{config_uri}",
                 f"/checks/{outcome.check.name}",
             )
-            message = f"check {outcome.check.name}: {outcome.failure.message}"
+            message = f"check {outcome.check.name}: {failure.message}"
             results.append(_gate_result(identity, message, config_uri))
     if stale and configuration.suppressions is not None:
         suppressions_uri = configuration.relative(configuration.suppressions)
@@ -384,8 +418,9 @@ def judge(
     Report
         The merged log, with the identity and the `suppressions` array of every result, and the
         verdict on each result. Identical occurrences are numbered across every run of one tool.
-        The `tool` object of each producer run is left unchanged. The results of the gate are
-        never suppressed, and are judged by the default and rule levels of the policy.
+        The `tool` object of each producer run is left unchanged, and an incomplete run enters
+        the log with the results it holds. The results of the gate are never suppressed, and are
+        judged by the default and rule levels of the policy.
     """
     owners = [outcome.check for outcome in outcomes for _ in outcome.runs]
     runs: list[JsonObject] = fingerprint_log(
@@ -400,12 +435,12 @@ def judge(
             suppressions.get(result["fingerprints"][FINGERPRINT_KEY]),
         )
         for check, run in zip(owners, runs)
-        for result in run["results"]
+        for result in run.get("results") or []
     ]
     stale, unverified = _stale(
         suppressions,
         {finding.identity for finding in findings if finding.suppressed},
-        {run["tool"]["driver"]["name"] for run in runs},
+        runs,
         all(outcome.failure is None for outcome in outcomes),
     )
     gate_results = _gate_results(configuration, outcomes, stale)

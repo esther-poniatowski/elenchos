@@ -58,7 +58,7 @@ def render(report: Report, configuration: Configuration) -> list[str]:
     -------
     list[str]
         One summary line per check and for the gate, then each blocking result, then the count of
-        unverified suppressions when a check failed, then the path of the log and the verdict.
+        unverified suppressions, then the path of the log and the verdict.
     """
     lines: list[str] = []
     for name in [check.name for check in configuration.checks] + [None]:
@@ -78,8 +78,8 @@ def render(report: Report, configuration: Configuration) -> list[str]:
         )
     if report.unverified:
         lines.append(
-            f"{len(report.unverified)} suppressions unverified, since their tool yielded no "
-            "valid run while a check failed"
+            f"{len(report.unverified)} suppressions unverified, since their tool yielded an "
+            "incomplete run, or no run while a check failed"
         )
     lines.append(f"log written to {configuration.output}")
     lines.append("gate: fail" if report.blocked else "gate: pass")
@@ -99,8 +99,8 @@ def cli_check(
     Run the declared checks, write the merged log, and exit 1 on an unsuppressed blocking result.
 
     The exit status is 0 when no result blocks, 1 when at least one unsuppressed result blocks
-    (a failed check and a stale suppression included), and 2 when the configuration or the
-    suppressions file is invalid, or the merged log cannot be written.
+    (a failed or incomplete check and a stale suppression included), and 2 when the configuration
+    or the suppressions file is invalid, or the merged log cannot be written.
     """
     try:
         configuration = load_configuration(config)

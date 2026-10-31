@@ -1,5 +1,6 @@
 """Tests of the runner of the gate on planted checks: fake producers writing SARIF, a failing
-check, invalid logs, suppressed and stale entries, and blocking and non-blocking levels."""
+check, invalid logs, partial and failed runs, suppressed, stale and unverified entries, and
+blocking and non-blocking levels."""
 
 import json
 from pathlib import Path
@@ -13,6 +14,7 @@ from elenchos.cli import EXIT_BLOCKED, EXIT_ERROR, EXIT_PASS, app
 from elenchos.config import Configuration, load_configuration
 from elenchos.runner import (
     CHECK_FAILED,
+    CHECK_INCOMPLETE,
     CHECK_INVALID_LOG,
     CHECK_MISSING_LOG,
     SUPPRESSION_STALE,
@@ -40,8 +42,9 @@ def command(script: str, *arguments: str) -> str:
     return json.dumps([sys.executable, str(FIXTURES / script), *arguments])
 
 
-def checks_toml(*broken_modes: str) -> str:
-    """The two fake producers, followed by one misbehaving check per mode."""
+def checks_toml(*broken_modes: str, stopping: str | None = None) -> str:
+    """The two fake producers, followed by one misbehaving check per mode, then the check of the
+    tool `stopper` ending as `stopping` says, when given."""
     text = f"""
 [checks.linker]
 command = {command("linker_check.py", "logs/linker.sarif")}
@@ -58,6 +61,12 @@ block = ["error", "warning"]
 command = {command("broken_check.py", mode, f"logs/broken-{index}.sarif")}
 log = "logs/broken-{index}.sarif"
 """
+    if stopping is not None:
+        text += f"""
+[checks.stopper]
+command = {command("stopping_check.py", stopping, "logs/stopper.sarif")}
+log = "logs/stopper.sarif"
+"""
     return text
 
 
@@ -66,6 +75,7 @@ def consumer(
     *broken_modes: str,
     entries: list[dict[str, Any]] | None = None,
     rules: str = '"terms|terms/advice" = []',
+    stopping: str | None = None,
 ) -> Path:
     """Write a consumer under `root`: its configuration in `config/`, and its suppressions."""
     if entries is None:
@@ -91,7 +101,7 @@ block = ["error"]
 
 [policy.rules]
 {rules}
-""" + checks_toml(*broken_modes),
+""" + checks_toml(*broken_modes, stopping=stopping),
         encoding="utf-8",
     )
     return path
@@ -202,6 +212,61 @@ def test_entry_of_a_failed_check_is_unverified_not_stale(tmp_path: Path) -> None
     _, report = gate(consumer(tmp_path, "crash", entries=entries))
     assert gate_rules(report) == [CHECK_FAILED, SUPPRESSION_STALE]
     assert report.unverified == ("ghost|r/x|path:a.md",)
+
+
+# --- Partial and failed runs ------------------------------------------------------------------
+
+STOPPED = "stopper|stage/failed|path:s.md"
+BEYOND_STOP = "stopper|stage/later|path:t.md"
+STOPPER_DECLARATION = f"elenchos|{CHECK_INCOMPLETE}|path:config/elenchos.toml|/checks/stopper"
+
+
+def stopper_entries() -> list[dict[str, Any]]:
+    """An entry matching the result of the stopper, one beyond its stop, and one stale entry."""
+    return [
+        {"identity": STOPPED, "justification": "tolerated first failure"},
+        {"identity": BEYOND_STOP, "justification": "held by a later stage"},
+        {"identity": STALE, "justification": "linker ran in full, so this one is stale"},
+    ]
+
+
+def test_entry_of_a_partial_run_is_unverified_not_stale(tmp_path: Path) -> None:
+    """A run stopped by design keeps its results, which suppressions match; an unmatched entry of
+    its tool is unverified, and the check is reported as incomplete, blocking."""
+    path = consumer(tmp_path, entries=stopper_entries(), stopping="partial")
+    _, report = gate(path)
+    assert verdicts(report)[STOPPED] == (True, False)
+    assert report.unverified == (BEYOND_STOP,)
+    assert gate_rules(report) == [CHECK_INCOMPLETE, SUPPRESSION_STALE]
+    assert verdicts(report)[STOPPER_DECLARATION] == (False, True)
+    message = report.log["runs"][-1]["results"][0]["message"]["text"]
+    assert message == (
+        "check stopper: run of stopper is incomplete: "
+        "stopped at the first failure; later stages skipped"
+    )
+
+
+def test_failed_run_without_results_is_reported_and_leaves_its_entries_unverified(
+    tmp_path: Path,
+) -> None:
+    """A producer reporting its own crash omits its results; its run enters the merged log, the
+    check is reported as incomplete, and every entry of its tool is unverified."""
+    path = consumer(tmp_path, entries=stopper_entries(), stopping="failed")
+    _, report = gate(path)
+    assert report.unverified == (STOPPED, BEYOND_STOP)
+    assert gate_rules(report) == [CHECK_INCOMPLETE, SUPPRESSION_STALE]
+    assert "results" not in report.log["runs"][2]
+    message = report.log["runs"][-1]["results"][0]["message"]["text"]
+    assert message == "check stopper: run of stopper is incomplete: executionSuccessful is false"
+    assert invoke(path).exit_code == EXIT_BLOCKED
+
+
+def test_entry_of_a_run_declaring_success_is_stale(tmp_path: Path) -> None:
+    """A run whose invocation succeeded is complete, so an unmatched entry of its tool is stale."""
+    path = consumer(tmp_path, entries=stopper_entries()[1:], stopping="succeeded")
+    _, report = gate(path)
+    assert report.unverified == ()
+    assert gate_rules(report) == [SUPPRESSION_STALE, SUPPRESSION_STALE]
 
 
 # --- Failing checks and invalid logs ----------------------------------------------------------
