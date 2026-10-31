@@ -1,0 +1,16 @@
+# ======================================
+# Dictionary for CSpell Extension
+# Topics:
+# - Project-specific names
+# - Project-specific concepts
+# ======================================
+elenchos
+sarif
+sarifLog
+fingerprints
+partialFingerprints
+logicalLocations
+physicalLocation
+artifactLocation
+uriBaseId
+columnKind

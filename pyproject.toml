@@ -1,0 +1,62 @@
+# ==================================================================================================
+# Pyproject Configuration for the elenchos Package
+#
+# Elenchos is the quality gate of a repository: it owns the findings profile of SARIF 2.1.0, builds
+# the identity of each finding, and holds the baselines of the checks declared by the consumer.
+# ==================================================================================================
+
+# --- Build System Requirements --------------------------------------------------------------------
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+# --- Package Metadata -----------------------------------------------------------------------------
+
+[project]
+name = "elenchos"
+version = "0.0.0"
+authors = [{name = "Esther Poniatowski", email = "esther.poniatowski@ens.psl.eu"}]
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+readme = {file = "README.md", content-type = "text/markdown"}
+description = "Gates a repository on the findings of its checks: a profile of SARIF 2.1.0, stable finding identities and baselines."
+keywords = ["quality gate", "sarif", "findings", "fingerprints", "baselines", "static analysis"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Development Status :: 2 - Pre-Alpha"
+]
+urls = {homepage = "https://github.com/esther-poniatowski/elenchos"}
+
+
+# --- Dependencies ---------------------------------------------------------------------------------
+
+requires-python = ">=3.12"
+
+dependencies = [
+    "typer",
+]
+
+
+# --- Package Source Code --------------------------------------------------------------------------
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# --- CLI Entry Points -----------------------------------------------------------------------------
+
+[project.scripts]
+elenchos = "elenchos.cli:app"
+
+# --- Tool Configurations --------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
