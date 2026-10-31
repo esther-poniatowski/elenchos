@@ -1,0 +1,247 @@
+"""
+Reading and writing of finding identities on SARIF 2.1.0 objects held as plain dictionaries.
+
+A producer writes the resource and the locus of a finding in `logicalLocations[0].name`, and its
+discriminator in `partialFingerprints["discriminator/v1"]`. The gate reads them, numbers the
+identical occurrences of the log, and writes the identity in `fingerprints["elenchos/v1"]`. The
+specification is `docs/profile.md`.
+
+Functions
+---------
+location_name(resource, locus) -> str
+    Write the name of the logical location of a finding.
+split_location_name(name) -> tuple[str, str]
+    Read the resource and the locus back from the name of a logical location.
+identity_of(result, tool) -> Identity
+    Read the identity without ordinal of one result of a run of `tool`.
+order_key(result) -> OrderKey
+    Read the key ordering identical occurrences of one result.
+write_fingerprint(result, identity) -> None
+    Write the identity of a result in `fingerprints["elenchos/v1"]`.
+write_identity(result, identity) -> None
+    Write the identity and the discriminator of a result.
+fingerprint_log(log) -> dict
+    Return a copy of a log whose every result carries its identity.
+"""
+
+import copy
+import re
+from typing import Any, Mapping
+
+from .errors import ProfileError
+from .identity import Identity, OrderKey, number_occurrences
+
+FINGERPRINT_KEY = "elenchos/v1"
+"""Key of the identity in `result.fingerprints`."""
+
+DISCRIMINATOR_KEY = "discriminator/v1"
+"""Key of the discriminator in `result.partialFingerprints`."""
+
+VERSIONED_KEY = re.compile(r"[^/]+(?:/[^/]+)*/v[0-9]+")
+"""Form of a versioned hierarchical string (SARIF §3.5.4.2), with non-empty components."""
+
+JsonObject = dict[str, Any]
+"""A JSON object of a SARIF log, read with `json.load`."""
+
+_NAME_ESCAPES = {"%25": "%", "%23": "#"}
+"""Escapes of the resource in the name of a logical location, mapped to their characters."""
+
+
+def location_name(resource: str, locus: str = "") -> str:
+    """
+    Write the name of the logical location of a finding.
+
+    Parameters
+    ----------
+    resource : str
+        Affected resource, `id:<identifier>` or `path:<path>`.
+    locus : str, default ""
+        Semantic locus within the resource, or the empty string for the whole resource.
+
+    Returns
+    -------
+    str
+        `<resource>` or `<resource>#<locus>`, with `%` and `#` of the resource written `%25` and
+        `%23`. The locus is written as is, since the name splits at its first `#`.
+
+    Examples
+    --------
+    >>> location_name("path:docs/notes#old.md", "link:a#b")
+    'path:docs/notes%23old.md#link:a#b'
+    """
+    escaped = resource.replace("%", "%25").replace("#", "%23")
+    return f"{escaped}#{locus}" if locus else escaped
+
+
+def split_location_name(name: str) -> tuple[str, str]:
+    """
+    Read the resource and the locus back from the name of a logical location.
+
+    Parameters
+    ----------
+    name : str
+        Value of `logicalLocations[0].name`.
+
+    Returns
+    -------
+    tuple[str, str]
+        The resource, decoded, and the locus, empty for the whole resource.
+
+    Raises
+    ------
+    ProfileError
+        If the name ends with `#`, or if its resource holds a `%` other than `%25` or `%23`. Such a
+        name is not produced by `location_name`, and accepting it would map two names onto one
+        identity.
+    """
+    escaped, separator, locus = name.partition("#")
+    if separator and not locus:
+        raise ProfileError(f"logical location {name!r} ends with `#` and an empty locus")
+    pieces = re.split(r"(%..)", escaped)
+    for piece in pieces[1::2]:
+        if piece not in _NAME_ESCAPES:
+            raise ProfileError(f"invalid escape {piece!r} in the resource of {name!r}")
+    if "%" in "".join(pieces[0::2]):
+        raise ProfileError(f"truncated escape in the resource of {name!r}")
+    resource = "".join(_NAME_ESCAPES.get(piece, piece) for piece in pieces)
+    return resource, locus
+
+
+def _check_keys(result: Mapping[str, Any], member: str) -> Mapping[str, Any]:
+    """Return `result[member]`, after checking that it maps versioned keys to strings."""
+    value = result.get(member, {})
+    if not isinstance(value, Mapping):
+        raise ProfileError(f"{member} is not an object")
+    for key, item in value.items():
+        if not VERSIONED_KEY.fullmatch(key):
+            raise ProfileError(f"{member} key {key!r} is not a versioned hierarchical string")
+        if not isinstance(item, str):
+            raise ProfileError(f"{member}[{key!r}] is not a string")
+    return value
+
+
+def _only_element(container: Mapping[str, Any], member: str) -> Mapping[str, Any]:
+    """Return the single element of the array `container[member]`, or raise `ProfileError`."""
+    array = container.get(member)
+    if not isinstance(array, list) or len(array) != 1 or not isinstance(array[0], Mapping):
+        count = len(array) if isinstance(array, list) else "no"
+        raise ProfileError(f"{member} must hold exactly one object, not {count}")
+    element: Mapping[str, Any] = array[0]
+    return element
+
+
+def identity_of(result: Mapping[str, Any], tool: str) -> Identity:
+    """
+    Read the identity without ordinal of one result of a run of `tool`.
+
+    Parameters
+    ----------
+    result : Mapping[str, Any]
+        SARIF `result` object.
+    tool : str
+        Value of `run.tool.driver.name` of the run holding the result.
+
+    Returns
+    -------
+    Identity
+        The identity of the result, with ordinal 1.
+
+    Raises
+    ------
+    ProfileError
+        If the result holds no `ruleId`, not exactly one location, not exactly one logical
+        location with a `name`, or a fingerprint key that is not a versioned hierarchical string.
+    """
+    rule_id = result.get("ruleId")
+    if not isinstance(rule_id, str):
+        raise ProfileError("result holds no ruleId")
+    location = _only_element(result, "locations")
+    name = _only_element(location, "logicalLocations").get("name")
+    if not isinstance(name, str):
+        raise ProfileError("logical location holds no name")
+    _check_keys(result, "fingerprints")
+    discriminator = _check_keys(result, "partialFingerprints").get(DISCRIMINATOR_KEY, "")
+    resource, locus = split_location_name(name)
+    return Identity(tool, rule_id, resource, locus, discriminator)
+
+
+def order_key(result: Mapping[str, Any]) -> OrderKey:
+    """
+    Read the key ordering identical occurrences of one result.
+
+    Parameters
+    ----------
+    result : Mapping[str, Any]
+        SARIF `result` object, already accepted by `identity_of`.
+
+    Returns
+    -------
+    OrderKey
+        `region.startLine` and `region.startColumn` of the physical location, each 0 when absent,
+        and `message.text`, empty when absent.
+    """
+    location = result["locations"][0]
+    region = location.get("physicalLocation", {}).get("region", {})
+    message = result.get("message", {}).get("text", "")
+    return (int(region.get("startLine", 0)), int(region.get("startColumn", 0)), str(message))
+
+
+def write_fingerprint(result: JsonObject, identity: Identity) -> None:
+    """Write the identity of a result in `fingerprints["elenchos/v1"]`, keeping other keys."""
+    result.setdefault("fingerprints", {})[FINGERPRINT_KEY] = str(identity)
+
+
+def write_identity(result: JsonObject, identity: Identity) -> None:
+    """
+    Write the identity and the discriminator of a result.
+
+    The discriminator goes to `partialFingerprints["discriminator/v1"]` when it is non-empty. This
+    serves a result built from its components, such as a finding of the gate itself.
+
+    Parameters
+    ----------
+    result : JsonObject
+        SARIF `result` object, modified in place.
+    identity : Identity
+        Identity of the result, with its ordinal.
+    """
+    write_fingerprint(result, identity)
+    if identity.discriminator:
+        result.setdefault("partialFingerprints", {})[DISCRIMINATOR_KEY] = identity.discriminator
+
+
+def fingerprint_log(log: Mapping[str, Any]) -> JsonObject:
+    """
+    Return a copy of a log whose every result carries its identity.
+
+    Identical occurrences are numbered across every run of one tool in the log. The `tool` object
+    and the `partialFingerprints` of each result are left unchanged.
+
+    Parameters
+    ----------
+    log : Mapping[str, Any]
+        SARIF `sarifLog` object; it is not modified.
+
+    Returns
+    -------
+    JsonObject
+        A deep copy of the log, with `fingerprints["elenchos/v1"]` on every result.
+
+    Raises
+    ------
+    ProfileError
+        If a run names no driver, or if a result breaks the profile (see `identity_of`).
+    """
+    stamped: JsonObject = copy.deepcopy(dict(log))
+    occurrences: list[tuple[Identity, OrderKey]] = []
+    results: list[JsonObject] = []
+    for run in stamped.get("runs", []):
+        tool = run.get("tool", {}).get("driver", {}).get("name")
+        if not isinstance(tool, str):
+            raise ProfileError("run holds no tool.driver.name")
+        for result in run.get("results") or []:
+            occurrences.append((identity_of(result, tool), order_key(result)))
+            results.append(result)
+    for result, identity in zip(results, number_occurrences(occurrences)):
+        write_fingerprint(result, identity)
+    return stamped
