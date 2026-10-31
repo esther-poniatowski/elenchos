@@ -20,6 +20,8 @@ write_fingerprint(result, identity) -> None
     Write the identity of a result in `fingerprints["elenchos/v1"]`.
 write_identity(result, identity) -> None
     Write the identity and the discriminator of a result.
+check_log(log) -> None
+    Check that a log written by a producer satisfies the profile.
 fingerprint_log(log) -> dict
     Return a copy of a log whose every result carries its identity.
 """
@@ -29,7 +31,7 @@ import re
 from typing import Any, Mapping
 
 from .errors import ProfileError
-from .identity import Identity, OrderKey, number_occurrences
+from .identity import TOOL_PATTERN, Identity, OrderKey, number_occurrences
 
 FINGERPRINT_KEY = "elenchos/v1"
 """Key of the identity in `result.fingerprints`."""
@@ -39,6 +41,15 @@ DISCRIMINATOR_KEY = "discriminator/v1"
 
 VERSIONED_KEY = re.compile(r"[^/]+(?:/[^/]+)*/v[0-9]+")
 """Form of a versioned hierarchical string (SARIF §3.5.4.2), with non-empty components."""
+
+SARIF_VERSION = "2.1.0"
+"""Value of `sarifLog.version`."""
+
+LEVELS = ("error", "warning", "note")
+"""Values of `result.level` admitted by the profile."""
+
+GATE_TOOL = "elenchos"
+"""Driver name of the run that the gate adds to the log; a producer never writes it."""
 
 JsonObject = dict[str, Any]
 """A JSON object of a SARIF log, read with `json.load`."""
@@ -208,6 +219,79 @@ def write_identity(result: JsonObject, identity: Identity) -> None:
     write_fingerprint(result, identity)
     if identity.discriminator:
         result.setdefault("partialFingerprints", {})[DISCRIMINATOR_KEY] = identity.discriminator
+
+
+def _check_result(result: Any, tool: str) -> None:
+    """Raise `ProfileError` unless a producer result satisfies the profile."""
+    if not isinstance(result, Mapping):
+        raise ProfileError("result is not an object")
+    identity_of(result, tool)
+    level = result.get("level")
+    if level not in LEVELS:
+        raise ProfileError(f"result level {level!r} is not one of {list(LEVELS)}")
+    message = result.get("message")
+    if not isinstance(message, Mapping) or not isinstance(message.get("text"), str):
+        raise ProfileError("result holds no message.text")
+    if "suppressions" in result:
+        raise ProfileError("result holds suppressions, which only the gate writes")
+    if FINGERPRINT_KEY in result.get("fingerprints", {}):
+        raise ProfileError(
+            f"result holds fingerprints[{FINGERPRINT_KEY!r}], written by the gate only"
+        )
+
+
+def check_log(log: Any) -> None:
+    """
+    Check that a log written by a producer satisfies the profile.
+
+    The rules checked are those on which the identity depends, and those on which the verdict of
+    the gate depends: the level of each result, and the absence of every object written by the
+    gate only.
+
+    Parameters
+    ----------
+    log : Any
+        Content of a log file, as returned by `json.load`.
+
+    Raises
+    ------
+    ProfileError
+        If the log is not an object of version `2.1.0` holding a non-empty array of runs; if a run
+        names no driver matching the tool form, names the driver of the gate, or holds no array of
+        results; or if a result breaks the profile (see `identity_of`), carries no admitted
+        `level`, no `message.text`, or a `suppressions` array or identity written by the producer.
+    """
+    if not isinstance(log, Mapping):
+        raise ProfileError("log is not an object")
+    version = log.get("version")
+    if version != SARIF_VERSION:
+        raise ProfileError(f"log version {version!r} is not {SARIF_VERSION!r}")
+    runs = log.get("runs")
+    if not isinstance(runs, list) or not runs:
+        raise ProfileError("log holds no array of runs")
+    for run in runs:
+        if not isinstance(run, Mapping):
+            raise ProfileError("run is not an object")
+        tool = _driver_name(run)
+        if not TOOL_PATTERN.fullmatch(tool):
+            raise ProfileError(f"run driver name {tool!r} does not match {TOOL_PATTERN.pattern}")
+        if tool == GATE_TOOL:
+            raise ProfileError(f"run names the driver {GATE_TOOL!r} of the gate")
+        results = run.get("results")
+        if not isinstance(results, list):
+            raise ProfileError("run holds no array of results")
+        for result in results:
+            _check_result(result, tool)
+
+
+def _driver_name(run: Mapping[str, Any]) -> str:
+    """Return `run.tool.driver.name`, or raise `ProfileError` when the run names no driver."""
+    tool = run.get("tool")
+    driver = tool.get("driver") if isinstance(tool, Mapping) else None
+    name = driver.get("name") if isinstance(driver, Mapping) else None
+    if not isinstance(name, str):
+        raise ProfileError("run holds no tool.driver.name")
+    return name
 
 
 def fingerprint_log(log: Mapping[str, Any]) -> JsonObject:

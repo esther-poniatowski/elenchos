@@ -15,6 +15,7 @@ dependencies:
   - pytest-mock
   - pytest-cov
   - pytest-pylint          # Pylint plugin for Pytest
+  - jsonschema             # agreement of the published schemas with the loaders
   # CLI
   - typer                  # command line interface
   - rich                   # terminal output formatting

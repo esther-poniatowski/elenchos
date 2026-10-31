@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/esther-poniatowski/elenchos/specs/schemas/suppressions.schema.json",
+  "title": "Elenchos suppressions",
+  "description": "Suppressions file of a consumer: the identities of tolerated findings, each with its justification. Each identity is a canonical identity string of the profile key `elenchos/v1`, and occurs at most once; the schema cannot express canonicity, which the gate checks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "suppressions"],
+  "properties": {
+    "version": {
+      "description": "Version of the suppressions format; version 1 holds identities of the profile key `elenchos/v1`.",
+      "const": 1
+    },
+    "suppressions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["identity", "justification"],
+        "properties": {
+          "identity": {
+            "description": "Canonical identity string of the suppressed finding.",
+            "type": "string",
+            "minLength": 1
+          },
+          "justification": {
+            "description": "Reason for which the finding is tolerated.",
+            "type": "string",
+            "pattern": "\\S"
+          },
+          "date": {
+            "description": "ISO 8601 date on which the entry was written.",
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "author": {
+            "description": "Author of the entry.",
+            "type": "string",
+            "pattern": "\\S"
+          }
+        }
+      }
+    }
+  }
+}
