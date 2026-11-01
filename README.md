@@ -23,7 +23,7 @@ Two limitations are observed when each checker reports and tolerates findings on
 
 ### Status
 
-Pre-alpha. The package provides the identity builder of the profile and the runner of the gate. The identity builder builds the canonical identity of a finding from its components, numbers identical occurrences, and parses an identity back. The runner executes the checks declared by a consumer, merges their logs into one SARIF log, applies the suppressions of the consumer, and exits non-zero on an unsuppressed blocking result. No command yet converts the legacy count baselines into suppressions.
+Pre-alpha. The package provides the identity builder of the profile and the runner of the gate. The identity builder builds the canonical identity of a finding from its components, numbers identical occurrences, and parses an identity back. The runner executes the checks declared by a consumer, merges their logs into one SARIF log, applies the suppressions of the consumer, and exits non-zero on an unsuppressed blocking result. The runner can also scope a run to the changed files, and apply declared renames of rules and resources to stored suppressions. Its command `update` prunes the stale entries of the suppressions file, or accepts the current findings. Accepting the findings that a legacy count baseline tolerates converts that baseline.
 
 ### Usage
 
@@ -31,6 +31,8 @@ A consumer declares its checks, its severity policy and its suppressions file in
 
 ```sh
 elenchos check --config config/elenchos.toml
+elenchos check --config config/elenchos.toml --changed
+elenchos update --config config/elenchos.toml --prune
 ```
 
 The exit status is 0 when no result blocks, 1 when an unsuppressed result blocks, and 2 when an input is invalid. The [gate configuration](docs/configuration.md) specifies both files and the behaviour of the runner.

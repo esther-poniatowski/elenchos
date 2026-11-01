@@ -20,7 +20,7 @@ elenchos check --config config/elenchos.toml
 The configuration is a TOML file, published as the JSON Schema [configuration.schema.json](../specs/schemas/configuration.schema.json). The commands of the example are illustrative: they assume producers that write the profile.
 
 ```toml
-version = 1
+version = 2
 root = ".."
 output = "build/elenchos/gate.sarif"
 suppressions = "specs/suppressions.json"
@@ -31,12 +31,16 @@ block = ["error"]
 [policy.rules]
 "geonexus|glossary/undeclared-concept" = []
 
+[renames.rules]
+"geonexus|links/broken" = "anagraphe|references/broken"
+
 [checks.links]
-command = ["python", "utils/scripts/check_links.py", "--sarif", "build/elenchos/links.sarif"]
+command = ["python", "utils/scripts/check_links.py", "--format", "sarif", "--output", "build/elenchos/links.sarif"]
 log = "build/elenchos/links.sarif"
+scope = "paths"
 
 [checks.glossary]
-command = ["python", "utils/scripts/check_glossary.py", "--sarif", "build/elenchos/glossary.sarif"]
+command = ["python", "utils/scripts/check_glossary.py", "--format", "sarif", "--output", "build/elenchos/glossary.sarif"]
 log = "build/elenchos/glossary.sarif"
 exit_codes = [0, 1]
 block = ["error", "warning"]
@@ -44,7 +48,7 @@ block = ["error", "warning"]
 
 | Key | Status | Content |
 | --- | --- | --- |
-| `version` | required | `1`, the version of the format |
+| `version` | required | `1` or `2`, the version of the format; version 2 adds `renames` and `checks.<name>.scope` |
 | `root` | optional | the root of the consumer, relative to the directory of the configuration file; `"."` when absent. The root contains the configuration file |
 | `output` | required | the path where the merged log is written |
 | `suppressions` | optional | the path of the suppressions file, under the root; absent when the consumer tolerates no finding. A declared file must exist |
@@ -55,6 +59,9 @@ block = ["error", "warning"]
 | `checks.<name>.log` | required | the path of the log written by the command; unique among the checks, and distinct from `output` |
 | `checks.<name>.exit_codes` | optional | the exit statuses meaning that the command ran to completion; `[0, 1]` when absent |
 | `checks.<name>.block` | optional | the levels that block for the results of this check, in place of `policy.block` |
+| `checks.<name>.scope` | optional, version 2 | `paths` when the command accepts paths appended to its argument vector, so that a scoped run checks only those paths; `root`, the default, when it always checks the whole root |
+| `renames.rules` | optional, version 2 | the new `tool|ruleId` of a renamed or moved rule, keyed by its former `tool|ruleId` |
+| `renames.resources` | optional, version 2 | the new resource of a moved or newly identified resource, keyed by its former resource (`path:<path>` or `id:<identifier>`) |
 
 **Paths.** Every relative path resolves against the root. The configuration file and the suppressions file lie under the root, since the gate names them as resources (`path:`) in its own results. Logs and the output may lie anywhere.
 
@@ -63,6 +70,14 @@ block = ["error", "warning"]
 1. the entry of `policy.rules` for the tool and the `ruleId` of the result;
 2. the `block` of the check whose log holds the result;
 3. `policy.block`.
+
+**Renames.** Before matching, the gate rewrites each stored suppression through the two maps of `renames`, as the [profile, section 5.5](profile.md#55-renames) states:
+
+- the map of rules replaces the tool and the `ruleId` together;
+- the map of resources replaces the resource;
+- the locus, the discriminator and the ordinal stay unchanged.
+
+No value of a map may be a key of the same map. Therefore, a chain of renames is declared by its first and last forms. When two entries take one identity after the rewrite, the gate rejects the suppressions file. A suppression matched after a rename records, in the property `elenchos/renamed-from`, the identity written in the file. The command `elenchos update` then writes the entry under its new identity.
 
 An empty list declares that no level blocks. A key of `policy.rules` holds the tool, since a `ruleId` is scoped to its tool ([profile, section 4.1](profile.md#41-ruleid)). The results of the gate itself belong to no check, so only steps 1 and 3 apply to them.
 
@@ -99,7 +114,7 @@ Each matched entry becomes the SARIF suppression `{"kind": "external", "status":
 
 `elenchos check` proceeds in six steps:
 
-1. read and validate the configuration and the suppressions file;
+1. read and validate the configuration and the suppressions file, and apply the rename maps to the suppressions;
 2. for each check, delete its log, run its command, and read the log that the command wrote. A log left by an earlier run is therefore never read;
 3. validate each log against the profile ([profile, section 5.6](profile.md#56-rejected-input)). A log that the rejected vectors describe is rejected;
 4. merge the runs of the valid logs into one log, one run per producer run with its `tool` object unaltered, incomplete runs included. Build the identity of every result, numbering identical occurrences across every run of one tool;
@@ -115,6 +130,13 @@ A check **fails** in three cases, each reported as a result of the gate, located
 | `check/invalid-log` | the log is not JSON, or breaks the profile |
 
 The runs of a failed check do not enter the merged log, since its log is absent, left by a crashed command, or unreadable.
+
+**Scoped runs.** Two forms scope a run:
+
+- `elenchos check --changed` scopes it to the files changed since the last commit, and to the untracked files outside the ignore rules of Git;
+- `elenchos check PATH...` scopes it to the given files or folders, under the root.
+
+A check of scope `paths` receives the repository-relative paths, appended to its command. When the scope holds no path, the gate skips that check. A check of scope `root` checks the whole root, as in a full run. The gate judges the results of a scoped run as those of a full run; only the staleness of suppressions changes, as section 4 states.
 
 A check is **incomplete** when its log is valid but holds an incomplete run: a partial run, stopped by design, or a failed run, by which a crashed producer reports itself ([profile, section 3](profile.md#3-log-and-run)). The runs of an incomplete check enter the merged log, since their results are genuine findings. The gate also reports the check as a result of rule `check/incomplete`, located at its declaration, whose message names the tool of each incomplete run and the reasons that its notifications state. Without that result, a producer that reports its own crash and exits with a declared status would pass the gate.
 
@@ -132,16 +154,22 @@ A suppression is **stale** when it matches no result of the merged log. The gate
 
 A stale entry blocks because it is a standing permission: if the finding it named comes back, the entry would tolerate it again without review. Blocking keeps the suppressions file equal to the debts that exist, so that the file only shrinks.
 
-Two cases leave the gate unable to tell whether the finding of an entry persists:
+Three cases leave the gate unable to tell whether the finding of an entry persists:
 
 - the tool of the entry yielded an incomplete run, which may have stopped before reaching the finding;
-- the tool of the entry yielded no run while a check failed, and the failed check may have been that of the tool.
+- the tool of the entry yielded no run while a check failed or was skipped, and that check may have been the check of the tool;
+- the tool of the entry ran only in scoped checks, and the scope covers no path of the resource of the entry: a `path:` resource equal to a path of the scope or below one of its folders. An `id:` resource is never covered.
 
 An unmatched entry in either case is **unverified**: the gate counts it in its summary, and does not report it as stale. Every other unmatched entry is stale. The failed or incomplete check already yields a result of the gate, judged by the policy.
 
 The results of the gate are never suppressed: their `suppressions` array is always empty.
 
-## 5. Open points
+## 5. Updating the suppressions file
 
-- The rename maps of [profile, section 5.5](profile.md#55-renames), a map of rules and a map of resources applied to stored suppressions, are not yet keys of the configuration. They take version 2 of the format.
-- No command shrinks the suppressions file or converts a legacy count baseline into entries. A stale entry is removed by hand, guided by the report.
+`elenchos update --config FILE` runs the checks as `check` does, with the same scope options, and then rewrites the suppressions file:
+
+- every entry is written under its current identity, so an identity renamed by the maps is settled in the file;
+- with `--prune`, every stale entry is removed. An unverified entry is kept, since its finding may persist;
+- with `--accept TEXT`, every unsuppressed result of a producer receives an entry justified by `TEXT`, dated today, and authored by `--author NAME` when given. `--check NAME`, repeatable, restricts the accepted results to the named checks, so that each check receives its own justification. The results of the gate are never accepted.
+
+The command exits 0 once the file is written, and 2 when an input is invalid, the configuration declares no suppressions file, or a file cannot be written. A legacy count baseline is converted by accepting, once, every finding that it tolerates: when the run holds no finding beyond the baseline, `update --accept` writes one entry per tolerated instance, its ordinal reproducing the count.

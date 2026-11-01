@@ -14,7 +14,7 @@ This document maps the current output of each producer of findings onto the [fin
 Migrating the baselines requires the identity builder of the gate, so the migration runs in four steps:
 
 1. write the profile and its test vectors;
-2. create Elenchos with the identity builder and the converter of legacy baselines;
+2. create Elenchos with the identity builder and the command `elenchos update --accept`; accepting the findings tolerated by a legacy baseline converts that baseline;
 3. add SARIF output to each producer that stays, skipping the duplicates to retire;
 4. migrate the baselines, verified at one commit ([section 4](#4-entries-that-need-manual-mapping-or-review)).
 
@@ -73,7 +73,7 @@ The checkers `metadata-options`, `schema-resources`, `schema-bindings`, `manifes
 | `gloss-form` | path | the dotted key path as a pointer | — |
 | `dependency` | path | `link:<target>`, after the last colon followed by a space | — |
 
-`ruleId` = `<checker>/<kind>`; for `dependency`, `dependencies/<declared rule id>`. An entry counted *c* times yields *c* identities through the ordinal of the [profile](profile.md#53-string-and-ordinal). Each identity becomes one stored suppression `{fingerprint, kind: external, status: accepted, justification}`. The justification is written automatically: "tolerated when the `<checker>` checker started gating; frozen on 2026-10-15".
+`ruleId` = `<checker>/<kind>`; for `dependency`, `dependencies/<declared rule id>`. An entry counted *c* times yields *c* identities through the ordinal of the [profile](profile.md#53-string-and-ordinal). Each identity becomes one stored suppression `{fingerprint, kind: external, status: accepted, justification}`. The justification is written automatically: "tolerated when the `<checker>` checker started gating; frozen on 2026-10-15". The conversion runs `elenchos update --accept "<justification>" --check <checker>` once per checker, at one commit where no checker holds a finding beyond its baseline.
 
 **Measured.** A parse of every entry with the patterns of the table (a scratch script of the drafting session) parsed all 2850 instances and left none unparsed. No two legacy entries map to one identity, so dropping the message and the severity merges nothing. 418 identities need ordinals, covering 2286 instances.
 
