@@ -1,9 +1,9 @@
 ---
 tags:
   - decision
-status: proposed
+status: accepted
 created: 2026-10-31
-revised: 2026-10-31
+revised: 2026-11-01
 index: "[Architecture decisions](docs/adr/_index.md)"
 aliases:
   - Findings profile decision
