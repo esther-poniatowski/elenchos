@@ -57,7 +57,14 @@ def edited(base: dict[str, Any], edit: Callable[[dict[str, Any]], None]) -> dict
 # Each edit breaks a rule that both the loader and the published schema state.
 CONFIGURATION_EDITS: dict[str, Callable[[dict[str, Any]], None]] = {
     "unknown-key": lambda d: d.update(extra=1),
-    "version-2": lambda d: d.update(version=2),
+    "version-3": lambda d: d.update(version=3),
+    "renames-in-version-1": lambda d: d.update(renames={"rules": {}}),
+    "scope-in-version-1": lambda d: d["checks"]["links"].update(scope="paths"),
+    "unknown-scope": lambda d: (d.update(version=2), d["checks"]["links"].update(scope="all")),
+    "bad-rename-rule": lambda d: d.update(version=2, renames={"rules": {"a|b": "c"}}),
+    "bad-rename-resource": lambda d: d.update(
+        version=2, renames={"resources": {"docs/a.md": "path:docs/b.md"}}
+    ),
     "no-output": lambda d: d.pop("output"),
     "no-policy-block": lambda d: d["policy"].pop("block"),
     "unknown-level": lambda d: d["policy"].update(block=["fatal"]),

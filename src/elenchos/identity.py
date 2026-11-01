@@ -139,7 +139,7 @@ def unescape(text: str) -> str:
     return "".join(characters)
 
 
-def _check_resource(resource: str) -> None:
+def check_resource(resource: str) -> None:
     """Raise `ProfileError` unless the resource is `id:<identifier>` or a normalized `path:`."""
     prefix = next((p for p in RESOURCE_PREFIXES if resource.startswith(p)), None)
     if prefix is None or resource == prefix:
@@ -216,7 +216,7 @@ class Identity:
             raise ProfileError(f"tool name {self.tool!r} does not match {TOOL_PATTERN.pattern}")
         if not RULE_PATTERN.fullmatch(self.rule_id):
             raise ProfileError(f"ruleId {self.rule_id!r} does not match {RULE_PATTERN.pattern}")
-        _check_resource(self.resource)
+        check_resource(self.resource)
         _check_locus(self.locus)
         if isinstance(self.ordinal, bool) or not isinstance(self.ordinal, int) or self.ordinal < 1:
             raise ProfileError(f"ordinal {self.ordinal!r} is not an integer of at least 1")

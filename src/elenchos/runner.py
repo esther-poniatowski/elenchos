@@ -22,8 +22,10 @@ Report
 
 Functions
 ---------
-run_check(check, root) -> CheckOutcome
-    Run one check and read its log.
+run_check(check, root, scope) -> CheckOutcome
+    Run one check, on the paths of a scoped run when it accepts paths, and read its log.
+changed_paths(root) -> list[str]
+    List the files changed since the last commit, and the untracked files, under a root.
 judge(configuration, outcomes, suppressions) -> Report
     Merge the outcomes of the checks into one log, and decide which results block.
 write_log(log, path) -> None
@@ -123,14 +125,21 @@ class CheckOutcome:
     check : Check
         The declared check.
     runs : tuple[JsonObject, ...]
-        Runs of the log of the check, empty when the check failed.
+        Runs of the log of the check, empty when the check failed or was skipped.
     failure : Failure | None
         Reason for which the check yields no valid log, or None.
+    scope : frozenset[str] | None, default None
+        Repository-relative paths that the check received in a scoped run, or None when it
+        checked the whole root.
+    skipped : bool, default False
+        Whether the check did not run, since it accepts paths and the scoped run holds none.
     """
 
     check: Check
     runs: tuple[JsonObject, ...] = ()
     failure: Failure | None = None
+    scope: frozenset[str] | None = None
+    skipped: bool = False
 
 
 @dataclass(frozen=True)
@@ -175,12 +184,22 @@ class Report:
         Verdict on each result, in the order of the log.
     unverified : tuple[str, ...]
         Identities of the unmatched suppressions that could not be checked: their tool yielded an
-        incomplete run, or yielded no run while a check failed.
+        incomplete run, no run while a check failed or was skipped, or a scoped run that did not
+        cover their resource.
+    stale : tuple[str, ...]
+        Identities of the stale suppressions, each reported by a result of the gate.
+    skipped : tuple[str, ...]
+        Names of the checks skipped by a scoped run that holds no path.
+    entries : tuple[Suppression, ...]
+        Suppressions of the consumer under their current identity, in the order of the file.
     """
 
     log: JsonObject
     findings: tuple[Finding, ...]
     unverified: tuple[str, ...] = ()
+    stale: tuple[str, ...] = ()
+    skipped: tuple[str, ...] = ()
+    entries: tuple[Suppression, ...] = ()
 
     @property
     def blocked(self) -> bool:
@@ -202,12 +221,48 @@ def _last_line(*outputs: str) -> str:
     return "no output"
 
 
-def run_check(check: Check, root: Path) -> CheckOutcome:
+def changed_paths(root: Path) -> list[str]:
     """
-    Run one check and read its log.
+    List the files changed since the last commit, and the untracked files, under a root.
+
+    Parameters
+    ----------
+    root : Path
+        Root of the consumer, inside a Git work tree.
+
+    Returns
+    -------
+    list[str]
+        Repository-relative POSIX paths of the existing files that differ from `HEAD` or are
+        untracked and not ignored, sorted. A deleted file is left out, since no check can read it.
+
+    Raises
+    ------
+    OSError
+        If Git cannot run, or the root lies outside a work tree.
+    """
+    found: set[str] = set()
+    for arguments in (
+        ["diff", "--name-only", "--relative", "HEAD"],
+        ["ls-files", "--others", "--exclude-standard"],
+    ):
+        completed = subprocess.run(
+            ["git", *arguments], cwd=root, capture_output=True, text=True, check=False
+        )
+        if completed.returncode != 0:
+            raise OSError(f"git {arguments[0]} failed: {_last_line(completed.stderr)}")
+        found.update(line for line in completed.stdout.splitlines() if line)
+    return sorted(path for path in found if (root / path).is_file())
+
+
+def run_check(check: Check, root: Path, scope: Sequence[str] | None = None) -> CheckOutcome:
+    """
+    Run one check, on the paths of a scoped run when it accepts paths, and read its log.
 
     The log declared by the check is deleted before the command runs, so that a log left by an
     earlier run is never read. The command runs without a shell, in the root of the consumer.
+    In a scoped run, a check of scope `paths` receives the paths appended to its command, and is
+    skipped when the run holds no path; a check of scope `root` checks the whole root.
 
     Parameters
     ----------
@@ -215,6 +270,8 @@ def run_check(check: Check, root: Path) -> CheckOutcome:
         The declared check.
     root : Path
         Root of the consumer, the working directory of the command.
+    scope : Sequence[str] | None, default None
+        Repository-relative paths of a scoped run, or None for a run on the whole root.
 
     Returns
     -------
@@ -222,31 +279,38 @@ def run_check(check: Check, root: Path) -> CheckOutcome:
         The runs of the log when the command exits with a declared status and writes a log that
         satisfies the profile; otherwise the failure, and no run.
     """
+    scoped = scope is not None and check.scope == "paths"
+    if scoped and not scope:
+        return CheckOutcome(check, skipped=True)
+    arguments = [*check.command, *(scope or [])] if scoped else list(check.command)
+    paths = frozenset(scope or []) if scoped else None
     try:
         check.log.unlink(missing_ok=True)
     except OSError as error:
         message = f"earlier log {_display(check.log, root)} cannot be deleted: {error}"
-        return CheckOutcome(check, failure=Failure(CHECK_FAILED, message))
+        return CheckOutcome(check, failure=Failure(CHECK_FAILED, message), scope=paths)
     try:
         completed = subprocess.run(
-            list(check.command), cwd=root, capture_output=True, text=True, check=False
+            arguments, cwd=root, capture_output=True, text=True, check=False
         )
     except OSError as error:
-        return CheckOutcome(check, failure=Failure(CHECK_FAILED, f"command cannot start: {error}"))
+        return CheckOutcome(
+            check, failure=Failure(CHECK_FAILED, f"command cannot start: {error}"), scope=paths
+        )
     if completed.returncode not in check.exit_codes:
         tail = _last_line(completed.stderr, completed.stdout)
         message = f"command exited with status {completed.returncode}: {tail}"
-        return CheckOutcome(check, failure=Failure(CHECK_FAILED, message))
+        return CheckOutcome(check, failure=Failure(CHECK_FAILED, message), scope=paths)
     if not check.log.is_file():
         message = f"command wrote no log at {_display(check.log, root)}"
-        return CheckOutcome(check, failure=Failure(CHECK_MISSING_LOG, message))
+        return CheckOutcome(check, failure=Failure(CHECK_MISSING_LOG, message), scope=paths)
     try:
         log = json.loads(check.log.read_text(encoding="utf-8"))
         check_log(log)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ProfileError) as error:
         message = f"log {_display(check.log, root)} is invalid: {error}"
-        return CheckOutcome(check, failure=Failure(CHECK_INVALID_LOG, message))
-    return CheckOutcome(check, runs=tuple(log["runs"]))
+        return CheckOutcome(check, failure=Failure(CHECK_INVALID_LOG, message), scope=paths)
+    return CheckOutcome(check, runs=tuple(log["runs"]), scope=paths)
 
 
 def _gate_result(identity: Identity, message: str, uri: str) -> JsonObject:
@@ -291,32 +355,69 @@ def _gate_run(results: list[JsonObject]) -> JsonObject:
     }
 
 
+def _covers(scope: frozenset[str], resource: str) -> bool:
+    """Whether a scoped run covers a resource: a `path:` equal to a path of the scope, or below a
+    folder of the scope.
+
+    Examples
+    --------
+    >>> _covers(frozenset({"docs/a.md", "notes"}), "path:notes/b.md")
+    True
+    >>> _covers(frozenset({"docs/a.md"}), "id:quest.x")
+    False
+    >>> _covers(frozenset({"."}), "path:docs/a.md")
+    True
+    """
+    if not resource.startswith("path:"):
+        return False
+    path = resource.removeprefix("path:").removesuffix("/")
+    folders = {item.rstrip("/") for item in scope}
+    return "." in folders or any(path == item or path.startswith(item + "/") for item in folders)
+
+
 def _stale(
     suppressions: Mapping[str, Suppression],
     matched: set[str],
+    outcomes: Sequence[CheckOutcome],
     runs: Sequence[JsonObject],
-    checks_valid: bool,
 ) -> tuple[list[str], list[str]]:
     """
     Split the unmatched suppressions into stale and unverified entries.
 
     An unmatched entry is unverified when its tool yielded an incomplete run, since the finding may
-    lie beyond the point where the run stopped. Otherwise, it is stale when its tool yielded a
-    complete run, or when every check yielded a valid log. An entry whose tool yielded no run while
-    a check failed is unverified, since the failed check may have held its finding.
+    lie beyond the point where the run stopped. An entry whose tool yielded no run while a check
+    failed or was skipped is unverified, since that check may have held its finding. An entry
+    whose tool ran only on the paths of a scoped run is unverified unless the scope covers its
+    resource. Every other unmatched entry is stale.
     """
     tools = {run["tool"]["driver"]["name"] for run in runs}
     incomplete = {run["tool"]["driver"]["name"] for run in runs if not run_complete(run)}
+    whole = {
+        run["tool"]["driver"]["name"]
+        for outcome in outcomes
+        if outcome.scope is None
+        for run in outcome.runs
+    }
+    scopes: dict[str, frozenset[str]] = {}
+    for outcome in outcomes:
+        if outcome.scope is not None:
+            for run in outcome.runs:
+                name = run["tool"]["driver"]["name"]
+                scopes[name] = scopes.get(name, frozenset()) | outcome.scope
+    all_ran = all(outcome.failure is None and not outcome.skipped for outcome in outcomes)
     stale: list[str] = []
     unverified: list[str] = []
-    for identity in suppressions:
-        if identity in matched:
+    for text in suppressions:
+        if text in matched:
             continue
-        tool = Identity.parse(identity).tool
-        if tool not in incomplete and (checks_valid or tool in tools):
-            stale.append(identity)
+        identity = Identity.parse(text)
+        tool = identity.tool
+        if tool in incomplete or not (all_ran or tool in tools):
+            unverified.append(text)
+        elif tool in scopes and tool not in whole and not _covers(scopes[tool], identity.resource):
+            unverified.append(text)
         else:
-            unverified.append(identity)
+            stale.append(text)
     return stale, unverified
 
 
@@ -440,8 +541,8 @@ def judge(
     stale, unverified = _stale(
         suppressions,
         {finding.identity for finding in findings if finding.suppressed},
+        outcomes,
         runs,
-        all(outcome.failure is None for outcome in outcomes),
     )
     gate_results = _gate_results(configuration, outcomes, stale)
     findings += [
@@ -452,7 +553,14 @@ def judge(
         "version": SARIF_VERSION,
         "runs": [*runs, _gate_run(gate_results)],
     }
-    return Report(log, tuple(findings), tuple(unverified))
+    return Report(
+        log,
+        tuple(findings),
+        tuple(unverified),
+        tuple(stale),
+        tuple(outcome.check.name for outcome in outcomes if outcome.skipped),
+        tuple(suppressions.values()),
+    )
 
 
 def write_log(log: Mapping[str, Any], path: Path) -> None:

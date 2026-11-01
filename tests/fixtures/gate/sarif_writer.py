@@ -30,8 +30,10 @@ def write(
     results: list[dict[str, Any]] | None,
     status: int = 0,
     invocation: dict[str, Any] | None = None,
+    target: Path | None = None,
 ) -> None:
-    """Write a log of one run of `tool` to the path given as last argument, then exit.
+    """Write a log of one run of `tool` to `target`, by default the path given as last argument,
+    then exit.
 
     The run omits `results` when they are None, and holds `invocation` as its single invocation
     when one is given."""
@@ -44,7 +46,7 @@ def write(
     if results is not None:
         run["results"] = results
     log = {"version": "2.1.0", "runs": [run]}
-    target = Path(sys.argv[-1])
+    target = Path(sys.argv[-1]) if target is None else target
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(log), encoding="utf-8")
     sys.exit(status)

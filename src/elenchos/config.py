@@ -10,6 +10,8 @@ Classes
 -------
 Check
     One declared check: the command that writes one SARIF log, and where the log is read.
+Renames
+    The declared maps of rules and of resources, applied to stored suppressions.
 Policy
     The levels that block, by default and for each rule.
 Configuration
@@ -46,12 +48,18 @@ import re
 import tomllib
 from typing import Any, Mapping
 
-from .errors import ConfigurationError
-from .identity import RULE_PATTERN, TOOL_PATTERN
+from .errors import ConfigurationError, ProfileError
+from .identity import RULE_PATTERN, TOOL_PATTERN, check_resource
 from .sarif import LEVELS
 
-FORMAT_VERSION = 1
-"""Version of the configuration format read by this release."""
+FORMAT_VERSION = 2
+"""Latest version of the configuration format read by this release."""
+
+FORMAT_VERSIONS = frozenset({1, 2})
+"""Versions read by this release: version 2 adds `renames` and the `scope` of a check."""
+
+SCOPES = ("root", "paths")
+"""Values of the `scope` of a check: it always checks the whole root, or it accepts paths."""
 
 CHECK_NAME_PATTERN = re.compile(r"[a-z][a-z0-9-]*")
 """Form of the name of a check; it excludes `/` and `~`, so that it is a JSON Pointer token."""
@@ -60,8 +68,11 @@ DEFAULT_EXIT_CODES = frozenset({0, 1})
 """Exit statuses meaning that a command ran to completion: 0 without findings, 1 with findings."""
 
 _TOP_KEYS = frozenset({"version", "root", "output", "suppressions", "policy", "checks"})
+_TOP_KEYS_V2 = _TOP_KEYS | {"renames"}
 _POLICY_KEYS = frozenset({"block", "rules"})
 _CHECK_KEYS = frozenset({"command", "log", "exit_codes", "block"})
+_CHECK_KEYS_V2 = _CHECK_KEYS | {"scope"}
+_RENAMES_KEYS = frozenset({"rules", "resources"})
 
 
 @dataclass(frozen=True)
@@ -82,6 +93,9 @@ class Check:
     block : frozenset[str] | None
         Levels that block for the results of this check, or None to apply the default of the
         policy.
+    scope : str, default "root"
+        `root` when the command always checks the whole root; `paths` when it accepts paths
+        appended to its argument vector, so that a scoped run checks only those paths.
     """
 
     name: str
@@ -89,6 +103,24 @@ class Check:
     log: Path
     exit_codes: frozenset[int] = DEFAULT_EXIT_CODES
     block: frozenset[str] | None = None
+    scope: str = "root"
+
+
+@dataclass(frozen=True)
+class Renames:
+    """
+    The declared maps of rules and of resources, applied to stored suppressions.
+
+    Attributes
+    ----------
+    rules : Mapping[str, str]
+        New `tool|ruleId` of each renamed or moved rule, keyed by its former `tool|ruleId`.
+    resources : Mapping[str, str]
+        New resource of each moved or newly identified resource, keyed by its former resource.
+    """
+
+    rules: Mapping[str, str] = field(default_factory=dict)
+    resources: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -154,6 +186,8 @@ class Configuration:
         Levels that block.
     checks : tuple[Check, ...]
         Declared checks, in the order of the file.
+    renames : Renames
+        Maps of rules and of resources applied to stored suppressions; empty in version 1.
     """
 
     path: Path
@@ -162,6 +196,7 @@ class Configuration:
     suppressions: Path | None
     policy: Policy
     checks: tuple[Check, ...]
+    renames: Renames = field(default_factory=Renames)
 
     def relative(self, path: Path) -> str:
         """
@@ -230,6 +265,36 @@ def _rule_key(key: str, path: Path, location: str) -> str:
     return key
 
 
+def _renames(value: Any, path: Path) -> Renames:
+    """Validate the table `renames`: keys and values of rules are `tool|ruleId`, those of
+    resources are resources of the profile, and no value is renamed again."""
+    table = _table(value, path, "renames", _RENAMES_KEYS)
+    rules_table = table.get("rules", {})
+    rules = {
+        _rule_key(key, path, "renames.rules"): _rule_key(
+            _text(new, path, f"renames.rules.{key!r}"), path, f"renames.rules.{key!r}"
+        )
+        for key, new in _table(rules_table, path, "renames.rules", frozenset(rules_table)).items()
+    }
+    resources_table = table.get("resources", {})
+    resources: dict[str, str] = {}
+    for key, new in _table(
+        resources_table, path, "renames.resources", frozenset(resources_table)
+    ).items():
+        location = f"renames.resources.{key!r}"
+        try:
+            check_resource(key)
+            check_resource(_text(new, path, location))
+        except ProfileError as error:
+            raise _fail(path, location, str(error)) from error
+        resources[key] = new
+    for name, mapping in (("rules", rules), ("resources", resources)):
+        chained = sorted(set(mapping) & set(mapping.values()))
+        if chained:
+            raise _fail(path, f"renames.{name}", f"renames {chained} again; map the first form to the last")
+    return Renames(rules, resources)
+
+
 def _policy(value: Any, path: Path) -> Policy:
     """Validate the table `policy`."""
     table = _table(value, path, "policy", _POLICY_KEYS)
@@ -245,12 +310,12 @@ def _policy(value: Any, path: Path) -> Policy:
     )
 
 
-def _check(name: str, value: Any, path: Path, root: Path) -> Check:
+def _check(name: str, value: Any, path: Path, root: Path, version: int) -> Check:
     """Validate one table of `checks`."""
     location = f"checks.{name}"
     if not CHECK_NAME_PATTERN.fullmatch(name):
         raise _fail(path, location, f"name does not match {CHECK_NAME_PATTERN.pattern}")
-    table = _table(value, path, location, _CHECK_KEYS)
+    table = _table(value, path, location, _CHECK_KEYS_V2 if version >= 2 else _CHECK_KEYS)
     for key in ("command", "log"):
         if key not in table:
             raise _fail(path, location, f"declares no `{key}`")
@@ -259,12 +324,16 @@ def _check(name: str, value: Any, path: Path, root: Path) -> Check:
         raise _fail(path, f"{location}.command", "is not a non-empty list of strings")
     arguments = tuple(_text(item, path, f"{location}.command") for item in command)
     block = table.get("block")
+    scope = table.get("scope", "root")
+    if scope not in SCOPES:
+        raise _fail(path, f"{location}.scope", f"is not one of {list(SCOPES)}")
     return Check(
         name,
         arguments,
         (root / _text(table["log"], path, f"{location}.log")).resolve(),
         _exit_codes(table.get("exit_codes", [0, 1]), path, f"{location}.exit_codes"),
         None if block is None else _levels(block, path, f"{location}.block"),
+        scope,
     )
 
 
@@ -287,15 +356,15 @@ def parse_configuration(data: Mapping[str, Any], path: Path) -> Configuration:
     Raises
     ------
     ConfigurationError
-        If a key is unknown or missing, a value breaks its form, two checks share a log, the
-        output coincides with a log, or the configuration or suppressions file lies outside the
-        root.
+        If a key is unknown or missing, a key of version 2 appears in version 1, a value breaks
+        its form, two checks share a log, the output coincides with a log, the configuration or
+        suppressions file lies outside the root, or a rename map renames a value again.
     """
     path = path.resolve()
-    table = _table(data, path, "top level", _TOP_KEYS)
-    version = table.get("version")
-    if isinstance(version, bool) or version != FORMAT_VERSION:
-        raise _fail(path, "version", f"is not {FORMAT_VERSION}")
+    version = data.get("version") if isinstance(data, Mapping) else None
+    if isinstance(version, bool) or version not in FORMAT_VERSIONS:
+        raise _fail(path, "version", f"is not one of {sorted(FORMAT_VERSIONS)}")
+    table = _table(data, path, "top level", _TOP_KEYS_V2 if version >= 2 else _TOP_KEYS)
     for key in ("output", "policy", "checks"):
         if key not in table:
             raise _fail(path, "top level", f"declares no `{key}`")
@@ -310,14 +379,19 @@ def parse_configuration(data: Mapping[str, Any], path: Path) -> Configuration:
     checks_table = _table(table["checks"], path, "checks", frozenset(table["checks"]))
     if not checks_table:
         raise _fail(path, "checks", "declares no check")
-    checks = tuple(_check(name, value, path, root) for name, value in checks_table.items())
+    checks = tuple(
+        _check(name, value, path, root, version) for name, value in checks_table.items()
+    )
     output = (root / _text(table["output"], path, "output")).resolve()
     logs = [check.log for check in checks]
     if len(set(logs)) != len(logs):
         raise _fail(path, "checks", "two checks declare one log")
     if output in logs:
         raise _fail(path, "output", "coincides with the log of a check")
-    return Configuration(path, root, output, suppressions, _policy(table["policy"], path), checks)
+    renames = _renames(table["renames"], path) if "renames" in table else Renames()
+    return Configuration(
+        path, root, output, suppressions, _policy(table["policy"], path), checks, renames
+    )
 
 
 def load_configuration(path: Path) -> Configuration:

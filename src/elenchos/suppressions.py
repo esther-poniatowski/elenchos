@@ -18,6 +18,10 @@ load_suppressions(path) -> dict[str, Suppression]
     Read and validate a suppressions file.
 parse_suppressions(data, path) -> dict[str, Suppression]
     Validate the parsed content of a suppressions file.
+apply_renames(entries, renames, path) -> dict[str, Suppression]
+    Rewrite the identity of each entry through the declared maps of rules and of resources.
+write_suppressions(entries, path) -> None
+    Write entries as a suppressions file.
 
 Examples
 --------
@@ -35,13 +39,14 @@ Examples
 {'kind': 'external', 'status': 'accepted', 'justification': 'old'}
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import datetime
 import json
 from pathlib import Path
 import re
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
+from .config import Renames
 from .errors import ConfigurationError, ProfileError
 from .identity import Identity
 from .sarif import GATE_TOOL, JsonObject
@@ -71,12 +76,16 @@ class Suppression:
         ISO 8601 date on which the entry was written.
     author : str | None, default None
         Author of the entry.
+    renamed_from : str | None, default None
+        Identity written in the file, when a rename map rewrote it into `identity`; never written
+        back to the file.
     """
 
     identity: str
     justification: str
     date: str | None = None
     author: str | None = None
+    renamed_from: str | None = None
 
     def sarif(self) -> JsonObject:
         """
@@ -87,7 +96,8 @@ class Suppression:
         JsonObject
             An external suppression with status `accepted` and the justification of the entry.
             The date and the author, when present, go to the properties `elenchos/date` and
-            `elenchos/author`.
+            `elenchos/author`, and the identity written in the file before a rename to
+            `elenchos/renamed-from`.
         """
         suppression: JsonObject = {
             "kind": "external",
@@ -96,7 +106,11 @@ class Suppression:
         }
         properties = {
             f"{GATE_TOOL}/{key}": value
-            for key, value in (("date", self.date), ("author", self.author))
+            for key, value in (
+                ("date", self.date),
+                ("author", self.author),
+                ("renamed-from", self.renamed_from),
+            )
             if value is not None
         }
         if properties:
@@ -207,3 +221,88 @@ def load_suppressions(path: Path) -> dict[str, Suppression]:
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ConfigurationError(f"{path}: cannot be read as JSON: {error}") from error
     return parse_suppressions(data, path)
+
+
+def apply_renames(
+    entries: Mapping[str, Suppression], renames: Renames, path: Path
+) -> dict[str, Suppression]:
+    """
+    Rewrite the identity of each entry through the declared maps of rules and of resources.
+
+    The map of rules replaces the tool and the `ruleId` of an entry together; the map of resources
+    replaces its resource. The locus, the discriminator and the ordinal are kept.
+
+    Parameters
+    ----------
+    entries : Mapping[str, Suppression]
+        Entries of a suppressions file, keyed by the identity written in the file.
+    renames : Renames
+        Declared maps of the configuration.
+    path : Path
+        Path of the suppressions file, named in error messages.
+
+    Returns
+    -------
+    dict[str, Suppression]
+        The entries keyed by their current identity, in the order of the file. A rewritten entry
+        records the identity written in the file as `renamed_from`.
+
+    Raises
+    ------
+    ConfigurationError
+        If two entries take one identity after the rewrite.
+
+    Examples
+    --------
+    >>> renames = Renames(rules={"geonexus|links/broken": "anagraphe|references/broken"})
+    >>> old = "geonexus|links/broken|path:a.md|link:b.md"
+    >>> entries = apply_renames({old: Suppression(old, "old")}, renames, Path("s.json"))
+    >>> list(entries)
+    ['anagraphe|references/broken|path:a.md|link:b.md']
+    """
+    renamed: dict[str, Suppression] = {}
+    for text, entry in entries.items():
+        identity = Identity.parse(text)
+        tool_rule = renames.rules.get(f"{identity.tool}|{identity.rule_id}")
+        if tool_rule is not None:
+            tool, _, rule_id = tool_rule.partition("|")
+            identity = replace(identity, tool=tool, rule_id=rule_id)
+        identity = replace(identity, resource=renames.resources.get(identity.resource, identity.resource))
+        current = str(identity)
+        if current in renamed:
+            raise _fail(
+                path, "suppressions", f"{text!r} and {renamed[current].renamed_from or current!r} "
+                f"both become {current!r} under the rename maps"
+            )
+        renamed[current] = entry if current == text else replace(
+            entry, identity=current, renamed_from=text
+        )
+    return renamed
+
+
+def write_suppressions(entries: Iterable[Suppression], path: Path) -> None:
+    """
+    Write entries as a suppressions file, each under its current identity.
+
+    Parameters
+    ----------
+    entries : Iterable[Suppression]
+        Entries to write, in order.
+    path : Path
+        Destination of the file.
+
+    Raises
+    ------
+    OSError
+        If the file cannot be written.
+    """
+    array = []
+    for entry in entries:
+        item: dict[str, str] = {"identity": entry.identity, "justification": entry.justification}
+        if entry.date is not None:
+            item["date"] = entry.date
+        if entry.author is not None:
+            item["author"] = entry.author
+        array.append(item)
+    document = {"version": FORMAT_VERSION, "suppressions": array}
+    path.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

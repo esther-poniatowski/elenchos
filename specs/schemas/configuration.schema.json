@@ -5,11 +5,19 @@
   "description": "Configuration of a consumer of the gate, written in TOML: its checks, its severity policy and its suppressions file. Relative paths resolve against the root.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "output", "policy", "checks"],
+  "required": [
+    "version",
+    "output",
+    "policy",
+    "checks"
+  ],
   "properties": {
     "version": {
-      "description": "Version of the configuration format.",
-      "const": 1
+      "description": "Version of the configuration format; version 2 adds `renames` and the `scope` of a check.",
+      "enum": [
+        1,
+        2
+      ]
     },
     "root": {
       "description": "Root of the consumer, relative to the directory of the configuration file; it contains the configuration file, and the commands run in it.",
@@ -31,7 +39,9 @@
       "description": "Levels that block, by default and for each rule.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["block"],
+      "required": [
+        "block"
+      ],
       "properties": {
         "block": {
           "description": "Levels that block when neither the rule nor the check declares its own.",
@@ -43,7 +53,9 @@
           "propertyNames": {
             "pattern": "^[a-z][a-z0-9-]*\\|[a-z0-9][a-z0-9._-]*(/[a-z0-9][a-z0-9._-]*)*$"
           },
-          "additionalProperties": { "$ref": "#/$defs/levels" }
+          "additionalProperties": {
+            "$ref": "#/$defs/levels"
+          }
         }
       }
     },
@@ -51,26 +63,71 @@
       "description": "Declared checks, keyed by name, run in the order of the file.",
       "type": "object",
       "minProperties": 1,
-      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
-      "additionalProperties": { "$ref": "#/$defs/check" }
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "renames": {
+      "description": "Maps applied to stored suppressions before they are matched (version 2): a renamed or moved rule, and a moved or newly identified resource. No value is a key of the same map.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "description": "New `tool|ruleId` of a rule, keyed by its former `tool|ruleId`.",
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9-]*\\|[a-z0-9][a-z0-9._-]*(/[a-z0-9][a-z0-9._-]*)*$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*\\|[a-z0-9][a-z0-9._-]*(/[a-z0-9][a-z0-9._-]*)*$"
+          }
+        },
+        "resources": {
+          "description": "New resource, keyed by the former resource: `path:<path>` or `id:<identifier>`.",
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^(id:.+|path:.+)$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^(id:.+|path:.+)$"
+          }
+        }
+      }
     }
   },
   "$defs": {
     "levels": {
       "type": "array",
       "uniqueItems": true,
-      "items": { "enum": ["error", "warning", "note"] }
+      "items": {
+        "enum": [
+          "error",
+          "warning",
+          "note"
+        ]
+      }
     },
     "check": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["command", "log"],
+      "required": [
+        "command",
+        "log"
+      ],
       "properties": {
         "command": {
           "description": "Argument vector of the command that writes one SARIF log, run without a shell in the root.",
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "log": {
           "description": "Path of the SARIF log written by the command; unique among the checks, and distinct from the output.",
@@ -82,14 +139,56 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "integer" },
-          "default": [0, 1]
+          "items": {
+            "type": "integer"
+          },
+          "default": [
+            0,
+            1
+          ]
         },
         "block": {
           "description": "Levels that block for the results of this check, in place of the default of the policy.",
           "$ref": "#/$defs/levels"
+        },
+        "scope": {
+          "description": "`root` when the command always checks the whole root; `paths` when it accepts paths appended to its argument vector, so that a scoped run checks only those paths (version 2).",
+          "enum": [
+            "root",
+            "paths"
+          ],
+          "default": "root"
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "version": {
+            "const": 1
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "renames"
+          ]
+        },
+        "properties": {
+          "checks": {
+            "additionalProperties": {
+              "not": {
+                "required": [
+                  "scope"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
