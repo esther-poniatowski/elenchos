@@ -65,7 +65,7 @@ requirements:
     {% endfor %}
 
 about:
-  summary: {{ pyproject.project.description }}
+  summary: {{ pyproject.project.description | tojson }}
   license: {{ pyproject.project.license }}
   license_file: {{ pyproject.project["license-files"][0] }}
   home: {{ pyproject.project.urls.homepage }}
