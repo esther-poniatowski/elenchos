@@ -291,7 +291,9 @@ def _renames(value: Any, path: Path) -> Renames:
     for name, mapping in (("rules", rules), ("resources", resources)):
         chained = sorted(set(mapping) & set(mapping.values()))
         if chained:
-            raise _fail(path, f"renames.{name}", f"renames {chained} again; map the first form to the last")
+            raise _fail(
+                path, f"renames.{name}", f"renames {chained} again; map the first form to the last"
+            )
     return Renames(rules, resources)
 
 
@@ -379,9 +381,7 @@ def parse_configuration(data: Mapping[str, Any], path: Path) -> Configuration:
     checks_table = _table(table["checks"], path, "checks", frozenset(table["checks"]))
     if not checks_table:
         raise _fail(path, "checks", "declares no check")
-    checks = tuple(
-        _check(name, value, path, root, version) for name, value in checks_table.items()
-    )
+    checks = tuple(_check(name, value, path, root, version) for name, value in checks_table.items())
     output = (root / _text(table["output"], path, "output")).resolve()
     logs = [check.log for check in checks]
     if len(set(logs)) != len(logs):

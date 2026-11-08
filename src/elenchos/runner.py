@@ -290,9 +290,7 @@ def run_check(check: Check, root: Path, scope: Sequence[str] | None = None) -> C
         message = f"earlier log {_display(check.log, root)} cannot be deleted: {error}"
         return CheckOutcome(check, failure=Failure(CHECK_FAILED, message), scope=paths)
     try:
-        completed = subprocess.run(
-            arguments, cwd=root, capture_output=True, text=True, check=False
-        )
+        completed = subprocess.run(arguments, cwd=root, capture_output=True, text=True, check=False)
     except OSError as error:
         return CheckOutcome(
             check, failure=Failure(CHECK_FAILED, f"command cannot start: {error}"), scope=paths

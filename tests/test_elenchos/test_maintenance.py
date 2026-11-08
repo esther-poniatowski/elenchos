@@ -185,7 +185,9 @@ def test_update_prunes_accepts_and_rewrites_then_the_gate_passes(tmp_path: Path)
 
 def test_update_keeps_unverified_entries(tmp_path: Path) -> None:
     path = consumer(tmp_path, [entry(IN_B)])
-    result = CliRunner().invoke(app, ["update", "--config", str(path), "--prune", str(tmp_path / "a.md")])
+    result = CliRunner().invoke(
+        app, ["update", "--config", str(path), "--prune", str(tmp_path / "a.md")]
+    )
     assert result.exit_code == EXIT_PASS, result.output
     stored = json.loads((tmp_path / "suppressions.json").read_text(encoding="utf-8"))
     assert [item["identity"] for item in stored["suppressions"]] == [IN_B]
@@ -194,7 +196,11 @@ def test_update_keeps_unverified_entries(tmp_path: Path) -> None:
 def test_update_accepts_only_the_results_of_the_named_checks(tmp_path: Path) -> None:
     path = consumer(tmp_path, [])
     runner = CliRunner()
-    unknown = runner.invoke(app, ["update", "--config", str(path), "--accept", "x", "--check", "nope"])
+    unknown = runner.invoke(
+        app, ["update", "--config", str(path), "--accept", "x", "--check", "nope"]
+    )
     assert unknown.exit_code == 2
-    none = runner.invoke(app, ["update", "--config", str(path), "--accept", "x", "--check", "scoper"])
+    none = runner.invoke(
+        app, ["update", "--config", str(path), "--accept", "x", "--check", "scoper"]
+    )
     assert none.exit_code == EXIT_PASS and "2 added" in none.output

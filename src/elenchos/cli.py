@@ -111,7 +111,9 @@ PATHS_ARGUMENT = typer.Argument(
 )
 
 
-def _scope(configuration: Configuration, changed: bool, paths: list[Path] | None) -> list[str] | None:
+def _scope(
+    configuration: Configuration, changed: bool, paths: list[Path] | None
+) -> list[str] | None:
     """Return the repository-relative paths of a scoped run, or None for a run on the whole root.
 
     Raises

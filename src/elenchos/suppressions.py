@@ -267,15 +267,19 @@ def apply_renames(
         if tool_rule is not None:
             tool, _, rule_id = tool_rule.partition("|")
             identity = replace(identity, tool=tool, rule_id=rule_id)
-        identity = replace(identity, resource=renames.resources.get(identity.resource, identity.resource))
+        identity = replace(
+            identity, resource=renames.resources.get(identity.resource, identity.resource)
+        )
         current = str(identity)
         if current in renamed:
             raise _fail(
-                path, "suppressions", f"{text!r} and {renamed[current].renamed_from or current!r} "
-                f"both become {current!r} under the rename maps"
+                path,
+                "suppressions",
+                f"{text!r} and {renamed[current].renamed_from or current!r} "
+                f"both become {current!r} under the rename maps",
             )
-        renamed[current] = entry if current == text else replace(
-            entry, identity=current, renamed_from=text
+        renamed[current] = (
+            entry if current == text else replace(entry, identity=current, renamed_from=text)
         )
     return renamed
 
