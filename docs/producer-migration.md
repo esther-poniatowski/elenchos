@@ -73,7 +73,7 @@ The checkers `metadata-options`, `schema-resources`, `schema-bindings`, `manifes
 | `gloss-form` | path | the dotted key path as a pointer | — |
 | `dependency` | path | `link:<target>`, after the last colon followed by a space | — |
 
-`ruleId` = `<checker>/<kind>`; for `dependency`, `dependencies/<declared rule id>`. An entry counted *c* times yields *c* identities through the ordinal of the [profile](profile.md#53-string-and-ordinal). Each identity becomes one stored suppression `{fingerprint, kind: external, status: accepted, justification}`. The justification is written automatically: "tolerated when the `<checker>` checker started gating; frozen on 2026-10-15". The conversion runs `elenchos update --accept "<justification>" --check <checker>` once per checker, at one commit where no checker holds a finding beyond its baseline.
+`ruleId` = `<checker>/<kind>`; for `dependency`, `dependencies/<declared rule id>`. An entry counted *c* times yields *c* identities through the ordinal of the [profile](profile.md#53-string-and-ordinal). Each identity becomes one stored suppression `{fingerprint, kind: external, status: accepted, justification}`. The justification is written automatically: "tolerated when the `<checker>` checker started gating; frozen on 2026-10-15". The conversion runs `elenchos update --accept "<justification>" --only <checker>` once per checker, at one commit where no checker holds a finding beyond its baseline.
 
 **Measured.** A parse of every entry with the patterns of the table (a scratch script of the drafting session) parsed all 2850 instances and left none unparsed. No two legacy entries map to one identity, so dropping the message and the severity merges nothing. 418 identities need ordinals, covering 2286 instances.
 

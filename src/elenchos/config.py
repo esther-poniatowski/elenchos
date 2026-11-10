@@ -1,10 +1,12 @@
 """
 Configuration of a consumer: its checks, its severity policy and its suppressions file.
 
-The consumer declares every input of the gate in one TOML file, whose path it passes on the command
-line. Elenchos discovers nothing on disk and holds no path of a consumer. The format is published as
-the JSON Schema `specs/schemas/configuration.schema.json`, and specified in
-`docs/configuration.md`.
+The consumer declares every input of the gate in one TOML file, `elenchos.toml`, read from
+`config/tools/elenchos.toml` or `elenchos.toml` below the root of the consumer, or from the path
+given by `--config`. The root is given by `--root`, by the environment variable `ELENCHOS_ROOT`, or
+found as the nearest ancestor of the current folder that holds the file; every path written in the
+file resolves against it. The format is published as the JSON Schema
+`specs/schemas/configuration.schema.json`, and specified in `docs/configuration.md`.
 
 Classes
 -------
@@ -19,9 +21,13 @@ Configuration
 
 Functions
 ---------
-load_configuration(path) -> Configuration
+find_root(start) -> Path
+    Return the nearest ancestor of a folder that holds a configuration file, or the folder itself.
+locate_configuration(root, config) -> Path
+    Return the configuration file named on the command line, or the one found below the root.
+load_configuration(path, root) -> Configuration
     Read and validate the configuration file of a consumer.
-parse_configuration(data, path) -> Configuration
+parse_configuration(data, path, root) -> Configuration
     Validate the parsed content of a configuration file.
 
 Examples
@@ -29,12 +35,13 @@ Examples
 >>> from pathlib import Path
 >>> configuration = parse_configuration(
 ...     {
-...         "version": 1,
+...         "version": 3,
 ...         "output": "gate.sarif",
 ...         "policy": {"block": ["error"], "rules": {"geonexus|links/broken": ["warning"]}},
 ...         "checks": {"links": {"command": ["check-links"], "log": "links.sarif"}},
 ...     },
 ...     Path("/repo/elenchos.toml"),
+...     Path("/repo"),
 ... )
 >>> [check.name for check in configuration.checks]
 ['links']
@@ -52,11 +59,22 @@ from .errors import ConfigurationError, ProfileError
 from .identity import RULE_PATTERN, TOOL_PATTERN, check_resource
 from .sarif import LEVELS
 
-FORMAT_VERSION = 2
-"""Latest version of the configuration format read by this release."""
+FORMAT_VERSION = 3
+"""Version of the configuration format read by this release.
 
-FORMAT_VERSIONS = frozenset({1, 2})
-"""Versions read by this release: version 2 adds `renames` and the `scope` of a check."""
+Version 3 retires the key `root`: the root comes from the command line, and every path of the file
+resolves against it. Versions 1 and 2, whose paths resolved against the folder of the file, are no
+longer read.
+"""
+
+SETTINGS_NAME = "elenchos.toml"
+"""Name of the configuration file, below the root or in its folder `config/tools/`."""
+
+SETTINGS_PLACES = (Path("config") / "tools" / SETTINGS_NAME, Path(SETTINGS_NAME))
+"""Places of the configuration file relative to the root, searched without `--config`."""
+
+ROOT_VARIABLE = "ELENCHOS_ROOT"
+"""Environment variable naming the root when `--root` is absent."""
 
 SCOPES = ("root", "paths")
 """Values of the `scope` of a check: it always checks the whole root, or it accepts paths."""
@@ -67,11 +85,9 @@ CHECK_NAME_PATTERN = re.compile(r"[a-z][a-z0-9-]*")
 DEFAULT_EXIT_CODES = frozenset({0, 1})
 """Exit statuses meaning that a command ran to completion: 0 without findings, 1 with findings."""
 
-_TOP_KEYS = frozenset({"version", "root", "output", "suppressions", "policy", "checks"})
-_TOP_KEYS_V2 = _TOP_KEYS | {"renames"}
+_TOP_KEYS = frozenset({"version", "output", "suppressions", "policy", "checks", "renames"})
 _POLICY_KEYS = frozenset({"block", "rules"})
-_CHECK_KEYS = frozenset({"command", "log", "exit_codes", "block"})
-_CHECK_KEYS_V2 = _CHECK_KEYS | {"scope"}
+_CHECK_KEYS = frozenset({"command", "log", "exit_codes", "block", "scope"})
 _RENAMES_KEYS = frozenset({"rules", "resources"})
 
 
@@ -187,7 +203,7 @@ class Configuration:
     checks : tuple[Check, ...]
         Declared checks, in the order of the file.
     renames : Renames
-        Maps of rules and of resources applied to stored suppressions; empty in version 1.
+        Maps of rules and of resources applied to stored suppressions; empty when undeclared.
     """
 
     path: Path
@@ -207,8 +223,8 @@ class Configuration:
         >>> configuration = Configuration(
         ...     Path("/r/c.toml"), Path("/r"), Path("/r/o"), None, Policy(frozenset()), ()
         ... )
-        >>> configuration.relative(Path("/r/config/elenchos.toml"))
-        'config/elenchos.toml'
+        >>> configuration.relative(Path("/r/config/tools/elenchos.toml"))
+        'config/tools/elenchos.toml'
         """
         return path.relative_to(self.root).as_posix()
 
@@ -312,12 +328,12 @@ def _policy(value: Any, path: Path) -> Policy:
     )
 
 
-def _check(name: str, value: Any, path: Path, root: Path, version: int) -> Check:
+def _check(name: str, value: Any, path: Path, root: Path) -> Check:
     """Validate one table of `checks`."""
     location = f"checks.{name}"
     if not CHECK_NAME_PATTERN.fullmatch(name):
         raise _fail(path, location, f"name does not match {CHECK_NAME_PATTERN.pattern}")
-    table = _table(value, path, location, _CHECK_KEYS_V2 if version >= 2 else _CHECK_KEYS)
+    table = _table(value, path, location, _CHECK_KEYS)
     for key in ("command", "log"):
         if key not in table:
             raise _fail(path, location, f"declares no `{key}`")
@@ -339,7 +355,7 @@ def _check(name: str, value: Any, path: Path, root: Path, version: int) -> Check
     )
 
 
-def parse_configuration(data: Mapping[str, Any], path: Path) -> Configuration:
+def parse_configuration(data: Mapping[str, Any], path: Path, root: Path) -> Configuration:
     """
     Validate the parsed content of a configuration file.
 
@@ -348,7 +364,9 @@ def parse_configuration(data: Mapping[str, Any], path: Path) -> Configuration:
     data : Mapping[str, Any]
         Content of the file, as returned by `tomllib`.
     path : Path
-        Path of the file; relative paths of the file resolve against its directory.
+        Path of the file.
+    root : Path
+        Root of the consumer; relative paths of the file resolve against it.
 
     Returns
     -------
@@ -358,21 +376,27 @@ def parse_configuration(data: Mapping[str, Any], path: Path) -> Configuration:
     Raises
     ------
     ConfigurationError
-        If a key is unknown or missing, a key of version 2 appears in version 1, a value breaks
-        its form, two checks share a log, the output coincides with a log, the configuration or
-        suppressions file lies outside the root, or a rename map renames a value again.
+        If a key is unknown or missing, the version is not the one read by this release, a value
+        breaks its form, two checks share a log, the output coincides with a log, the
+        configuration or suppressions file lies outside the root, or a rename map renames a value
+        again.
     """
     path = path.resolve()
+    root = root.resolve()
     version = data.get("version") if isinstance(data, Mapping) else None
-    if isinstance(version, bool) or version not in FORMAT_VERSIONS:
-        raise _fail(path, "version", f"is not one of {sorted(FORMAT_VERSIONS)}")
-    table = _table(data, path, "top level", _TOP_KEYS_V2 if version >= 2 else _TOP_KEYS)
+    if isinstance(version, bool) or version != FORMAT_VERSION:
+        raise _fail(
+            path,
+            "version",
+            f"is not {FORMAT_VERSION}; version 3 retires the key `root`, and resolves every path "
+            "against the root",
+        )
+    table = _table(data, path, "top level", _TOP_KEYS)
     for key in ("output", "policy", "checks"):
         if key not in table:
             raise _fail(path, "top level", f"declares no `{key}`")
-    root = (path.parent / _text(table.get("root", "."), path, "root")).resolve()
     if not path.is_relative_to(root):
-        raise _fail(path, "root", f"{root} does not contain the configuration file")
+        raise _fail(path, "top level", f"the root {root} does not contain the configuration file")
     suppressions = None
     if "suppressions" in table:
         suppressions = (root / _text(table["suppressions"], path, "suppressions")).resolve()
@@ -381,7 +405,7 @@ def parse_configuration(data: Mapping[str, Any], path: Path) -> Configuration:
     checks_table = _table(table["checks"], path, "checks", frozenset(table["checks"]))
     if not checks_table:
         raise _fail(path, "checks", "declares no check")
-    checks = tuple(_check(name, value, path, root, version) for name, value in checks_table.items())
+    checks = tuple(_check(name, value, path, root) for name, value in checks_table.items())
     output = (root / _text(table["output"], path, "output")).resolve()
     logs = [check.log for check in checks]
     if len(set(logs)) != len(logs):
@@ -394,7 +418,79 @@ def parse_configuration(data: Mapping[str, Any], path: Path) -> Configuration:
     )
 
 
-def load_configuration(path: Path) -> Configuration:
+def find_root(start: Path) -> Path:
+    """
+    Return the nearest ancestor of a folder that holds a configuration file, or the folder itself.
+
+    Parameters
+    ----------
+    start : Path
+        Folder from which the search starts, normally the current folder.
+
+    Returns
+    -------
+    Path
+        The nearest folder, `start` included, holding `config/tools/elenchos.toml` or
+        `elenchos.toml`; `start` itself when no ancestor holds one.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     root = Path(folder).resolve()
+    ...     (root / "config" / "tools").mkdir(parents=True)
+    ...     _ = (root / "config" / "tools" / "elenchos.toml").write_text("")
+    ...     (root / "docs" / "notes").mkdir(parents=True)
+    ...     find_root(root / "docs" / "notes") == root
+    True
+    """
+    start = start.resolve()
+    for folder in (start, *start.parents):
+        if any((folder / place).is_file() for place in SETTINGS_PLACES):
+            return folder
+    return start
+
+
+def locate_configuration(root: Path, config: Path | None) -> Path:
+    """
+    Return the configuration file named on the command line, or the one found below the root.
+
+    Parameters
+    ----------
+    root : Path
+        Root of the consumer.
+    config : Path | None
+        Path given by `--config`, relative to the current folder, or None.
+
+    Returns
+    -------
+    Path
+        The path given by `--config`, or the single existing place of `SETTINGS_PLACES`.
+
+    Raises
+    ------
+    ConfigurationError
+        If the file named by `--config` does not exist, if both places hold a file, or if neither
+        does: the gate has no built-in checks to run without a configuration.
+    """
+    if config is not None:
+        if not config.is_file():
+            raise ConfigurationError(
+                f"{config}: the configuration file named by --config does not exist"
+            )
+        return config
+    found = [root / place for place in SETTINGS_PLACES if (root / place).is_file()]
+    if len(found) > 1:
+        raise ConfigurationError(
+            f"two configuration files compete: {found[0]} and {found[1]}; keep one of them"
+        )
+    if not found:
+        places = " or ".join(str(root / place) for place in SETTINGS_PLACES)
+        raise ConfigurationError(f"no configuration file: expected {places}, or --config")
+    return found[0]
+
+
+def load_configuration(path: Path, root: Path) -> Configuration:
     """
     Read and validate the configuration file of a consumer.
 
@@ -402,6 +498,8 @@ def load_configuration(path: Path) -> Configuration:
     ----------
     path : Path
         Path of the TOML configuration file.
+    root : Path
+        Root of the consumer, against which the paths of the file resolve.
 
     Returns
     -------
@@ -418,4 +516,4 @@ def load_configuration(path: Path) -> Configuration:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         raise ConfigurationError(f"{path}: cannot be read as TOML: {error}") from error
-    return parse_configuration(data, path)
+    return parse_configuration(data, path, root)

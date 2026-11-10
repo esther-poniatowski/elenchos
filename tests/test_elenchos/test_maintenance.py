@@ -1,4 +1,4 @@
-"""Tests of version 2 of the configuration: rename maps applied to stored suppressions, scoped runs
+"""Tests of the rename maps of the configuration: rename maps applied to stored suppressions, scoped runs
 on the paths of a check of scope `paths`, the listing of changed files, and the command `update`
 that prunes, accepts and rewrites the entries of a suppressions file."""
 
@@ -31,13 +31,13 @@ def command(script: str, *arguments: str) -> str:
 
 
 def consumer(root: Path, entries: list[dict[str, Any]], renames: str = "") -> Path:
-    """Write a consumer of version 2 whose single check accepts paths."""
+    """Write a consumer whose single check accepts paths, its configuration at the root."""
     (root / "suppressions.json").write_text(
         json.dumps({"version": 1, "suppressions": entries}), encoding="utf-8"
     )
     path = root / "elenchos.toml"
     path.write_text(
-        f"""version = 2
+        f"""version = 3
 output = "build/gate.sarif"
 suppressions = "suppressions.json"
 
@@ -56,7 +56,7 @@ scope = "paths"
 
 def gate(path: Path, scope: list[str] | None = None):
     """Run the check of a consumer, its stored suppressions renamed, and judge the outcome."""
-    configuration = load_configuration(path)
+    configuration = load_configuration(path, path.parent)
     assert configuration.suppressions is not None
     entries = apply_renames(
         load_suppressions(configuration.suppressions),
@@ -105,7 +105,7 @@ def test_a_rename_map_that_renames_a_value_again_is_rejected(tmp_path: Path) -> 
         renames='\n[renames.rules]\n"a|r" = "b|r"\n"b|r" = "c|r"\n',
     )
     with pytest.raises(ConfigurationError, match="again"):
-        load_configuration(path)
+        load_configuration(path, path.parent)
 
 
 # --- Scoped runs ---------------------------------------------------------------------------------
@@ -163,10 +163,10 @@ def test_update_prunes_accepts_and_rewrites_then_the_gate_passes(tmp_path: Path)
         renames='\n[renames.rules]\n"linker|links/missing" = "scoper|links/broken"\n',
     )
     runner = CliRunner()
-    assert runner.invoke(app, ["check", "--config", str(path)]).exit_code == EXIT_BLOCKED
+    assert runner.invoke(app, ["check", "--root", str(tmp_path)]).exit_code == EXIT_BLOCKED
     updated = runner.invoke(
         app,
-        ["update", "--config", str(path), "--prune", "--accept", "frozen", "--author", "E. P."],
+        ["update", "--root", str(tmp_path), "--prune", "--accept", "frozen", "--author", "E. P."],
     )
     assert updated.exit_code == EXIT_PASS, updated.output
     assert "1 renamed, 1 pruned, 1 added" in updated.output
@@ -180,27 +180,37 @@ def test_update_prunes_accepts_and_rewrites_then_the_gate_passes(tmp_path: Path)
             "author": "E. P.",
         },
     ]
-    assert runner.invoke(app, ["check", "--config", str(path)]).exit_code == EXIT_PASS
+    assert runner.invoke(app, ["check", "--root", str(tmp_path)]).exit_code == EXIT_PASS
 
 
 def test_update_keeps_unverified_entries(tmp_path: Path) -> None:
     path = consumer(tmp_path, [entry(IN_B)])
-    result = CliRunner().invoke(
-        app, ["update", "--config", str(path), "--prune", str(tmp_path / "a.md")]
-    )
+    arguments = ["update", "-r", str(tmp_path), "-c", str(path), "--prune", str(tmp_path / "a.md")]
+    result = CliRunner().invoke(app, arguments)
     assert result.exit_code == EXIT_PASS, result.output
     stored = json.loads((tmp_path / "suppressions.json").read_text(encoding="utf-8"))
     assert [item["identity"] for item in stored["suppressions"]] == [IN_B]
 
 
 def test_update_accepts_only_the_results_of_the_named_checks(tmp_path: Path) -> None:
-    path = consumer(tmp_path, [])
+    consumer(tmp_path, [])
     runner = CliRunner()
     unknown = runner.invoke(
-        app, ["update", "--config", str(path), "--accept", "x", "--check", "nope"]
+        app, ["update", "--root", str(tmp_path), "--accept", "x", "--only", "nope"]
     )
     assert unknown.exit_code == 2
     none = runner.invoke(
-        app, ["update", "--config", str(path), "--accept", "x", "--check", "scoper"]
+        app, ["update", "--root", str(tmp_path), "--accept", "x", "--only", "scoper"]
     )
     assert none.exit_code == EXIT_PASS and "2 added" in none.output
+
+
+def test_update_no_longer_reads_the_retired_check_filter(tmp_path: Path) -> None:
+    """`--check` is reserved for a run that writes nothing; the filter is `--only`, without
+    alias."""
+    consumer(tmp_path, [])
+    retired = CliRunner().invoke(
+        app, ["update", "--root", str(tmp_path), "--accept", "x", "--check", "scoper"]
+    )
+    assert retired.exit_code == 2
+    assert not (tmp_path / "build" / "gate.sarif").exists()

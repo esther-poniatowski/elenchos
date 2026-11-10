@@ -77,7 +77,7 @@ def consumer(
     rules: str = '"terms|terms/advice" = []',
     stopping: str | None = None,
 ) -> Path:
-    """Write a consumer under `root`: its configuration in `config/`, and its suppressions."""
+    """Write a consumer under `root`: its configuration in `config/tools/`, and its suppressions."""
     if entries is None:
         entries = [
             {"identity": SUPPRESSED, "justification": "tolerated when the gate started"},
@@ -88,11 +88,10 @@ def consumer(
     (root / "specs" / "suppressions.json").write_text(
         json.dumps({"version": 1, "suppressions": entries}), encoding="utf-8"
     )
-    path = root / "config" / "elenchos.toml"
+    path = root / "config" / "tools" / "elenchos.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        f"""version = 1
-root = ".."
+        f"""version = 3
 output = "build/gate.sarif"
 suppressions = "specs/suppressions.json"
 
@@ -109,7 +108,7 @@ block = ["error"]
 
 def gate(path: Path) -> tuple[Configuration, Report]:
     """Run every check of a consumer and judge their outcomes, without the command line."""
-    configuration = load_configuration(path)
+    configuration = load_configuration(path, path.parents[2])
     assert configuration.suppressions is not None
     outcomes = [run_check(check, configuration.root) for check in configuration.checks]
     return configuration, judge(
@@ -218,7 +217,7 @@ def test_entry_of_a_failed_check_is_unverified_not_stale(tmp_path: Path) -> None
 
 STOPPED = "stopper|stage/failed|path:s.md"
 BEYOND_STOP = "stopper|stage/later|path:t.md"
-STOPPER_DECLARATION = f"elenchos|{CHECK_INCOMPLETE}|path:config/elenchos.toml|/checks/stopper"
+STOPPER_DECLARATION = f"elenchos|{CHECK_INCOMPLETE}|path:config/tools/elenchos.toml|/checks/stopper"
 
 
 def stopper_entries() -> list[dict[str, Any]]:
@@ -287,7 +286,7 @@ def test_misbehaving_check_is_reported_at_its_declaration(
     """A crash, a missing log or an invalid log yields one blocking result of the gate, located
     at the declaration of the check, and the other checks still report."""
     _, report = gate(consumer(tmp_path, mode, entries=[]))
-    identity = f"elenchos|{rule}|path:config/elenchos.toml|/checks/broken-0"
+    identity = f"elenchos|{rule}|path:config/tools/elenchos.toml|/checks/broken-0"
     assert verdicts(report)[identity] == (False, True)
     assert UNSUPPRESSED in verdicts(report)
 
@@ -361,8 +360,8 @@ def test_merged_log_holds_one_run_per_producer_and_unaltered_tools(tmp_path: Pat
 
 
 def invoke(path: Path) -> Any:
-    """Run `elenchos check` on a configuration file."""
-    return CliRunner().invoke(app, ["check", "--config", str(path)])
+    """Run `elenchos check` on the root of a consumer, which holds the configuration file."""
+    return CliRunner().invoke(app, ["check", "--root", str(path.parents[2])])
 
 
 def test_cli_exits_1_on_a_blocking_result_and_writes_the_log(tmp_path: Path) -> None:
@@ -398,5 +397,33 @@ def test_cli_exits_2_on_an_invalid_suppressions_file(tmp_path: Path) -> None:
 
 
 def test_cli_exits_2_on_a_missing_configuration(tmp_path: Path) -> None:
-    """A configuration file that does not exist makes the gate refuse to run."""
-    assert invoke(tmp_path / "absent.toml").exit_code == EXIT_ERROR
+    """A file named by --config and absent, or a root holding no file, makes the gate refuse to
+    run."""
+    runner = CliRunner()
+    named = ["check", "--root", str(tmp_path), "--config", str(tmp_path / "absent.toml")]
+    assert runner.invoke(app, named).exit_code == EXIT_ERROR
+    assert runner.invoke(app, ["check", "--root", str(tmp_path)]).exit_code == EXIT_ERROR
+
+
+def test_cli_finds_the_root_from_a_subfolder(tmp_path: Path, monkeypatch: Any) -> None:
+    """Without --root and ELENCHOS_ROOT, the root is the nearest ancestor holding the file."""
+    consumer(tmp_path)
+    (tmp_path / "docs").mkdir()
+    monkeypatch.delenv("ELENCHOS_ROOT", raising=False)
+    monkeypatch.chdir(tmp_path / "docs")
+    outcome = CliRunner().invoke(app, ["check"])
+    assert outcome.exit_code == EXIT_BLOCKED, outcome.output
+    assert (tmp_path / "build" / "gate.sarif").is_file()
+
+
+def test_cli_reads_the_root_from_the_environment(tmp_path: Path, monkeypatch: Any) -> None:
+    """ELENCHOS_ROOT names the root when --root is absent; --root overrides it."""
+    consumer(tmp_path / "consumer")
+    (tmp_path / "elsewhere").mkdir()
+    monkeypatch.chdir(tmp_path / "elsewhere")
+    monkeypatch.setenv("ELENCHOS_ROOT", str(tmp_path / "consumer"))
+    runner = CliRunner()
+    assert runner.invoke(app, ["check"]).exit_code == EXIT_BLOCKED
+    overridden = runner.invoke(app, ["check", "--root", str(tmp_path / "elsewhere")])
+    assert overridden.exit_code == EXIT_ERROR
+    assert "no configuration file" in overridden.output

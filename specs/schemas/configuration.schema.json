@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/esther-poniatowski/elenchos/specs/schemas/configuration.schema.json",
   "title": "Elenchos configuration",
-  "description": "Configuration of a consumer of the gate, written in TOML: its checks, its severity policy and its suppressions file. Relative paths resolve against the root.",
+  "description": "Configuration of a consumer of the gate, written in TOML and named `elenchos.toml`: its checks, its severity policy and its suppressions file. Relative paths resolve against the root, given on the command line.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -13,17 +13,8 @@
   ],
   "properties": {
     "version": {
-      "description": "Version of the configuration format; version 2 adds `renames` and the `scope` of a check.",
-      "enum": [
-        1,
-        2
-      ]
-    },
-    "root": {
-      "description": "Root of the consumer, relative to the directory of the configuration file; it contains the configuration file, and the commands run in it.",
-      "type": "string",
-      "minLength": 1,
-      "default": "."
+      "description": "Version of the configuration format; version 3 retires `root`, and resolves every path against the root given on the command line.",
+      "const": 3
     },
     "output": {
       "description": "Path where the merged SARIF log is written.",
@@ -71,7 +62,7 @@
       }
     },
     "renames": {
-      "description": "Maps applied to stored suppressions before they are matched (version 2): a renamed or moved rule, and a moved or newly identified resource. No value is a key of the same map.",
+      "description": "Maps applied to stored suppressions before they are matched: a renamed or moved rule, and a moved or newly identified resource. No value is a key of the same map.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -152,7 +143,7 @@
           "$ref": "#/$defs/levels"
         },
         "scope": {
-          "description": "`root` when the command always checks the whole root; `paths` when it accepts paths appended to its argument vector, so that a scoped run checks only those paths (version 2).",
+          "description": "`root` when the command always checks the whole root; `paths` when it accepts paths appended to its argument vector, so that a scoped run checks only those paths.",
           "enum": [
             "root",
             "paths"
@@ -161,34 +152,5 @@
         }
       }
     }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "version": {
-            "const": 1
-          }
-        }
-      },
-      "then": {
-        "not": {
-          "required": [
-            "renames"
-          ]
-        },
-        "properties": {
-          "checks": {
-            "additionalProperties": {
-              "not": {
-                "required": [
-                  "scope"
-                ]
-              }
-            }
-          }
-        }
-      }
-    }
-  ]
+  }
 }

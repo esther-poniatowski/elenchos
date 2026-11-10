@@ -23,7 +23,13 @@ from typing import Optional
 import typer
 
 from . import info, __version__
-from .config import Configuration, load_configuration
+from .config import (
+    ROOT_VARIABLE,
+    Configuration,
+    find_root,
+    load_configuration,
+    locate_configuration,
+)
 from .errors import ConfigurationError
 from .runner import Report, changed_paths, judge, run_check, write_log
 from .sarif import GATE_TOOL
@@ -96,10 +102,23 @@ def render(report: Report, configuration: Configuration) -> list[str]:
 
 
 CONFIG_OPTION = typer.Option(
-    ...,
+    None,
     "--config",
     "-c",
-    help="Configuration file of the consumer, declaring its checks, policy and suppressions.",
+    help=(
+        "Configuration file of the consumer, declaring its checks, policy and suppressions; "
+        "`config/tools/elenchos.toml` or `elenchos.toml` below the root by default."
+    ),
+)
+ROOT_OPTION = typer.Option(
+    None,
+    "--root",
+    "-r",
+    envvar=ROOT_VARIABLE,
+    help=(
+        "Root of the consumer, against which the paths of the configuration resolve; by default "
+        "the nearest ancestor of the current folder holding the configuration file."
+    ),
 )
 CHANGED_OPTION = typer.Option(
     False,
@@ -140,10 +159,29 @@ def _scope(
     return scope
 
 
-def _gate(config: Path, changed: bool, paths: list[Path] | None) -> tuple[Configuration, Report]:
+def _root(root: Path | None) -> Path:
+    """Return the root given by `--root` or `ELENCHOS_ROOT`, or the one found from the current
+    folder.
+
+    Raises
+    ------
+    ConfigurationError
+        If the given root is not a folder.
+    """
+    if root is None:
+        return find_root(Path.cwd())
+    if not root.is_dir():
+        raise ConfigurationError(f"{root}: the root is not a folder")
+    return root.resolve()
+
+
+def _gate(
+    root: Path | None, config: Path | None, changed: bool, paths: list[Path] | None
+) -> tuple[Configuration, Report]:
     """Load the inputs, run the checks, judge them and write the merged log; exit 2 on an error."""
     try:
-        configuration = load_configuration(config)
+        resolved = _root(root)
+        configuration = load_configuration(locate_configuration(resolved, config), resolved)
         entries = (
             {}
             if configuration.suppressions is None
@@ -169,7 +207,8 @@ def _gate(config: Path, changed: bool, paths: list[Path] | None) -> tuple[Config
 
 @app.command("check")
 def cli_check(
-    config: Path = CONFIG_OPTION,
+    root: Optional[Path] = ROOT_OPTION,
+    config: Optional[Path] = CONFIG_OPTION,
     changed: bool = CHANGED_OPTION,
     paths: Optional[list[Path]] = PATHS_ARGUMENT,
 ) -> None:
@@ -182,14 +221,15 @@ def cli_check(
     stale suppression included), and 2 when an input is invalid, or the merged log cannot be
     written.
     """
-    configuration, report = _gate(config, changed, paths)
+    configuration, report = _gate(root, config, changed, paths)
     typer.echo("\n".join(render(report, configuration)))
     raise typer.Exit(EXIT_BLOCKED if report.blocked else EXIT_PASS)
 
 
 @app.command("update")
 def cli_update(
-    config: Path = CONFIG_OPTION,
+    root: Optional[Path] = ROOT_OPTION,
+    config: Optional[Path] = CONFIG_OPTION,
     prune: bool = typer.Option(False, "--prune", help="Remove the stale entries."),
     accept: Optional[str] = typer.Option(
         None,
@@ -198,7 +238,7 @@ def cli_update(
     ),
     author: Optional[str] = typer.Option(None, "--author", help="Author of the added entries."),
     only: Optional[list[str]] = typer.Option(
-        None, "--check", help="Accept only the results of this check; repeatable."
+        None, "--only", help="Accept only the results of this check; repeatable."
     ),
     changed: bool = CHANGED_OPTION,
     paths: Optional[list[Path]] = PATHS_ARGUMENT,
@@ -209,12 +249,12 @@ def cli_update(
     Every entry is written under its current identity, so a renamed identity is settled. With
     `--prune`, the stale entries are removed; an unverified entry is kept. With `--accept`, every
     unsuppressed result of a producer receives an entry dated today, appended in the order of the
-    log; the results of the gate are never accepted. `--check` restricts the accepted results to the
+    log; the results of the gate are never accepted. `--only` restricts the accepted results to the
     named checks, so that each check receives its own justification. The exit status is 0 once the file is
     written, and 2 when an input is invalid, the configuration declares no suppressions file, or
     a file cannot be written.
     """
-    configuration, report = _gate(config, changed, paths)
+    configuration, report = _gate(root, config, changed, paths)
     if configuration.suppressions is None:
         typer.echo("elenchos: the configuration declares no suppressions file", err=True)
         raise typer.Exit(EXIT_ERROR)
@@ -223,7 +263,7 @@ def cli_update(
         raise typer.Exit(EXIT_ERROR)
     unknown = sorted(set(only or []) - {check.name for check in configuration.checks})
     if unknown:
-        typer.echo(f"elenchos: --check names no declared check: {unknown}", err=True)
+        typer.echo(f"elenchos: --only names no declared check: {unknown}", err=True)
         raise typer.Exit(EXIT_ERROR)
     stale = set(report.stale) if prune else set()
     kept = [entry for entry in report.entries if entry.identity not in stale]

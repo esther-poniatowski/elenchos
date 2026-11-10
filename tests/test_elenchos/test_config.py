@@ -8,17 +8,22 @@ from typing import Any, Callable
 
 import pytest
 
-from elenchos.config import DEFAULT_EXIT_CODES, parse_configuration
+from elenchos.config import (
+    DEFAULT_EXIT_CODES,
+    find_root,
+    locate_configuration,
+    parse_configuration,
+)
 from elenchos.errors import ConfigurationError, ProfileError
 from elenchos.sarif import check_log
 from elenchos.suppressions import parse_suppressions
 
 SPECS = Path(__file__).parents[2] / "specs"
-CONFIG_PATH = Path("/consumer/config/elenchos.toml")
+ROOT = Path("/consumer")
+CONFIG_PATH = ROOT / "config" / "tools" / "elenchos.toml"
 
 VALID_CONFIGURATION: dict[str, Any] = {
-    "version": 1,
-    "root": "..",
+    "version": 3,
     "output": "build/gate.sarif",
     "suppressions": "specs/suppressions.json",
     "policy": {"block": ["error"], "rules": {"terms|terms/advice": []}},
@@ -57,13 +62,12 @@ def edited(base: dict[str, Any], edit: Callable[[dict[str, Any]], None]) -> dict
 # Each edit breaks a rule that both the loader and the published schema state.
 CONFIGURATION_EDITS: dict[str, Callable[[dict[str, Any]], None]] = {
     "unknown-key": lambda d: d.update(extra=1),
-    "version-3": lambda d: d.update(version=3),
-    "renames-in-version-1": lambda d: d.update(renames={"rules": {}}),
-    "scope-in-version-1": lambda d: d["checks"]["links"].update(scope="paths"),
-    "unknown-scope": lambda d: (d.update(version=2), d["checks"]["links"].update(scope="all")),
-    "bad-rename-rule": lambda d: d.update(version=2, renames={"rules": {"a|b": "c"}}),
+    "version-2": lambda d: d.update(version=2),
+    "retired-root": lambda d: d.update(root=".."),
+    "unknown-scope": lambda d: d["checks"]["links"].update(scope="all"),
+    "bad-rename-rule": lambda d: d.update(renames={"rules": {"a|b": "c"}}),
     "bad-rename-resource": lambda d: d.update(
-        version=2, renames={"resources": {"docs/a.md": "path:docs/b.md"}}
+        renames={"resources": {"docs/a.md": "path:docs/b.md"}}
     ),
     "no-output": lambda d: d.pop("output"),
     "no-policy-block": lambda d: d["policy"].pop("block"),
@@ -92,19 +96,19 @@ SUPPRESSION_EDITS: dict[str, Callable[[dict[str, Any]], None]] = {
 
 
 def test_valid_configuration_resolves_paths_against_the_root() -> None:
-    """Relative paths resolve against the root, itself relative to the configuration file."""
-    configuration = parse_configuration(VALID_CONFIGURATION, CONFIG_PATH)
-    root = Path("/consumer").resolve()
+    """Relative paths resolve against the root, not against the folder of the file."""
+    configuration = parse_configuration(VALID_CONFIGURATION, CONFIG_PATH, ROOT)
+    root = ROOT.resolve()
     assert configuration.root == root
     assert configuration.output == root / "build" / "gate.sarif"
     assert configuration.checks[0].log == root / "logs" / "links.sarif"
     assert configuration.checks[0].exit_codes == DEFAULT_EXIT_CODES
-    assert configuration.relative(configuration.path) == "config/elenchos.toml"
+    assert configuration.relative(configuration.path) == "config/tools/elenchos.toml"
 
 
 def test_checks_keep_the_order_of_the_file() -> None:
     """Checks run in the order in which the file declares them."""
-    configuration = parse_configuration(VALID_CONFIGURATION, CONFIG_PATH)
+    configuration = parse_configuration(VALID_CONFIGURATION, CONFIG_PATH, ROOT)
     assert [check.name for check in configuration.checks] == ["links", "terms"]
 
 
@@ -112,23 +116,86 @@ def test_checks_keep_the_order_of_the_file() -> None:
 def test_invalid_configuration_is_rejected(case: str) -> None:
     """Each planted breach of the format is rejected by the loader."""
     with pytest.raises(ConfigurationError):
-        parse_configuration(edited(VALID_CONFIGURATION, CONFIGURATION_EDITS[case]), CONFIG_PATH)
+        parse_configuration(
+            edited(VALID_CONFIGURATION, CONFIGURATION_EDITS[case]), CONFIG_PATH, ROOT
+        )
 
 
 @pytest.mark.parametrize(
     "edit",
     [
-        lambda d: d.update(root="sub"),
         lambda d: d.update(suppressions="../outside.json"),
         lambda d: d["checks"]["terms"].update(log="logs/links.sarif"),
         lambda d: d.update(output="logs/links.sarif"),
     ],
-    ids=["root-excludes-config", "suppressions-outside", "shared-log", "output-is-a-log"],
+    ids=["suppressions-outside", "shared-log", "output-is-a-log"],
 )
 def test_path_rules_beyond_the_schema_are_rejected(edit: Callable[[dict[str, Any]], None]) -> None:
     """The loader rejects the path rules that a JSON Schema cannot state."""
     with pytest.raises(ConfigurationError):
-        parse_configuration(edited(VALID_CONFIGURATION, edit), CONFIG_PATH)
+        parse_configuration(edited(VALID_CONFIGURATION, edit), CONFIG_PATH, ROOT)
+
+
+def test_a_root_that_excludes_the_configuration_file_is_rejected() -> None:
+    """The gate names the configuration file as a resource under the root, so it lies there."""
+    with pytest.raises(ConfigurationError, match="does not contain"):
+        parse_configuration(VALID_CONFIGURATION, CONFIG_PATH, ROOT / "sub")
+
+
+# --- Root and place of the configuration file -------------------------------------------------
+
+
+def test_the_root_is_the_nearest_ancestor_holding_a_configuration_file(tmp_path: Path) -> None:
+    """The search stops at the nearest folder holding the file, in `config/tools/` or at its
+    level, and falls back to the start folder."""
+    outer = tmp_path / "outer"
+    inner = outer / "inner"
+    (outer / "config" / "tools").mkdir(parents=True)
+    (outer / "config" / "tools" / "elenchos.toml").write_text("")
+    (inner / "docs").mkdir(parents=True)
+    (inner / "elenchos.toml").write_text("")
+    assert find_root(inner / "docs") == inner.resolve()
+    assert find_root(outer / "config") == outer.resolve()
+    assert find_root(tmp_path) == tmp_path.resolve()
+
+
+def test_the_configuration_is_found_in_either_place(tmp_path: Path) -> None:
+    """Without --config, the file is `config/tools/elenchos.toml` or `elenchos.toml`."""
+    (tmp_path / "elenchos.toml").write_text("")
+    assert locate_configuration(tmp_path, None) == tmp_path / "elenchos.toml"
+    (tmp_path / "elenchos.toml").unlink()
+    (tmp_path / "config" / "tools").mkdir(parents=True)
+    (tmp_path / "config" / "tools" / "elenchos.toml").write_text("")
+    assert locate_configuration(tmp_path, None) == tmp_path / "config" / "tools" / "elenchos.toml"
+
+
+def test_two_competing_configuration_files_are_rejected(tmp_path: Path) -> None:
+    """Both places holding a file is an error naming both."""
+    (tmp_path / "config" / "tools").mkdir(parents=True)
+    (tmp_path / "config" / "tools" / "elenchos.toml").write_text("")
+    (tmp_path / "elenchos.toml").write_text("")
+    with pytest.raises(ConfigurationError) as error:
+        locate_configuration(tmp_path, None)
+    assert "config/tools/elenchos.toml" in str(error.value)
+    assert str(tmp_path / "elenchos.toml") in str(error.value)
+
+
+@pytest.mark.parametrize(
+    "name", [".elenchos.toml", "config/elenchos.toml"], ids=["dotted", "config-folder"]
+)
+def test_a_configuration_file_elsewhere_is_not_read(tmp_path: Path, name: str) -> None:
+    """Only the two conventional places are searched; a former place is not a fallback."""
+    (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / name).write_text("")
+    with pytest.raises(ConfigurationError, match="no configuration file"):
+        locate_configuration(tmp_path, None)
+
+
+def test_an_absent_file_named_by_config_is_rejected(tmp_path: Path) -> None:
+    """A file named by --config and absent is an error, even when a default file exists."""
+    (tmp_path / "elenchos.toml").write_text("")
+    with pytest.raises(ConfigurationError, match="does not exist"):
+        locate_configuration(tmp_path, tmp_path / "missing.toml")
 
 
 # --- Suppressions -----------------------------------------------------------------------------

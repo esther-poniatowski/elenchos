@@ -9,19 +9,28 @@ aliases:
 
 This specification fixes the two files through which a consumer declares the inputs of the gate: the configuration, listing the checks and the severity policy, and the suppressions file, listing the tolerated findings. It also fixes how `elenchos check` runs the checks and decides its exit status. The grounds of each choice, and the options weighed, are recorded in the [decision on the runner and the suppressions](adr/runner-and-suppressions.md). The SARIF objects that the gate reads and writes follow the [findings profile](profile.md).
 
-Elenchos discovers nothing on disk and holds no path of a consumer. The consumer passes the path of its configuration on the command line, and the configuration names every other path:
+The configuration names every path of the consumer. Elenchos itself locates only the root of the consumer and the configuration file:
 
 ```sh
-elenchos check --config config/elenchos.toml
+elenchos check                                        # from the root or any folder below it
+elenchos check --root PATH --config FILE              # both named explicitly
 ```
+
+**Root.** The root is the folder in which the checks run and against which every path of the configuration resolves. Elenchos takes the first answer among:
+
+1. the option `-r`, `--root`;
+2. the environment variable `ELENCHOS_ROOT`;
+3. the nearest ancestor of the current folder, the current folder included, that holds `config/tools/elenchos.toml` or `elenchos.toml`;
+4. the current folder.
+
+**Configuration file.** The configuration file is named `elenchos.toml`. Without `-c`, `--config`, Elenchos reads `config/tools/elenchos.toml` or `elenchos.toml` below the root. When both exist, the gate refuses to run and names both. When neither exists, the gate also refuses to run, since it has no built-in checks. A file named by `--config` and absent is an error. A path given on the command line, to `--root`, `--config` or as a scope, is read from the current folder.
 
 ## 1. Configuration
 
 The configuration is a TOML file, published as the JSON Schema [configuration.schema.json](../specs/schemas/configuration.schema.json). The commands of the example are illustrative: they assume producers that write the profile.
 
 ```toml
-version = 2
-root = ".."
+version = 3
 output = "build/elenchos/gate.sarif"
 suppressions = "specs/suppressions.json"
 
@@ -48,8 +57,7 @@ block = ["error", "warning"]
 
 | Key | Status | Content |
 | --- | --- | --- |
-| `version` | required | `1` or `2`, the version of the format; version 2 adds `renames` and `checks.<name>.scope` |
-| `root` | optional | the root of the consumer, relative to the directory of the configuration file; `"."` when absent. The root contains the configuration file |
+| `version` | required | `3`, the version of the format. Versions 1 and 2 are no longer read: they held a key `root`, and resolved the paths of the file against its folder |
 | `output` | required | the path where the merged log is written |
 | `suppressions` | optional | the path of the suppressions file, under the root; absent when the consumer tolerates no finding. A declared file must exist |
 | `policy.block` | required | the levels that block by default, among `error`, `warning` and `note` |
@@ -59,11 +67,11 @@ block = ["error", "warning"]
 | `checks.<name>.log` | required | the path of the log written by the command; unique among the checks, and distinct from `output` |
 | `checks.<name>.exit_codes` | optional | the exit statuses meaning that the command ran to completion; `[0, 1]` when absent |
 | `checks.<name>.block` | optional | the levels that block for the results of this check, in place of `policy.block` |
-| `checks.<name>.scope` | optional, version 2 | `paths` when the command accepts paths appended to its argument vector, so that a scoped run checks only those paths; `root`, the default, when it always checks the whole root |
-| `renames.rules` | optional, version 2 | the new `tool|ruleId` of a renamed or moved rule, keyed by its former `tool|ruleId` |
-| `renames.resources` | optional, version 2 | the new resource of a moved or newly identified resource, keyed by its former resource (`path:<path>` or `id:<identifier>`) |
+| `checks.<name>.scope` | optional | `paths` when the command accepts paths appended to its argument vector, so that a scoped run checks only those paths; `root`, the default, when it always checks the whole root |
+| `renames.rules` | optional | the new `tool|ruleId` of a renamed or moved rule, keyed by its former `tool|ruleId` |
+| `renames.resources` | optional | the new resource of a moved or newly identified resource, keyed by its former resource (`path:<path>` or `id:<identifier>`) |
 
-**Paths.** Every relative path resolves against the root. The configuration file and the suppressions file lie under the root, since the gate names them as resources (`path:`) in its own results. Logs and the output may lie anywhere.
+**Paths.** Every relative path of the file resolves against the root, never against the folder of the file, so the file moves between the root and `config/tools/` without an edit. The configuration file and the suppressions file lie under the root, since the gate names them as resources (`path:`) in its own results. Logs and the output may lie anywhere.
 
 **Severity policy.** A result of a producer carries the default level written by its producer, and the gate does not rewrite it ([profile, section 4.2](profile.md#42-level)). The levels that block for a result are taken from the most specific declaration:
 
@@ -146,7 +154,7 @@ A check is **incomplete** when its log is valid but holds an incomplete run: a p
 | --- | --- |
 | 0 | no result blocks |
 | 1 | at least one unsuppressed result blocks: a finding of a producer, a failed or incomplete check, or a stale suppression |
-| 2 | the gate cannot run: the configuration or the suppressions file is invalid, or the merged log cannot be written |
+| 2 | the gate cannot run: the configuration file is absent, competes with a second one, or is invalid, the suppressions file is invalid, or the merged log cannot be written |
 
 ## 4. Stale suppressions
 
@@ -166,10 +174,10 @@ The results of the gate are never suppressed: their `suppressions` array is alwa
 
 ## 5. Updating the suppressions file
 
-`elenchos update --config FILE` runs the checks as `check` does, with the same scope options, and then rewrites the suppressions file:
+`elenchos update` runs the checks as `check` does, with the same root, configuration and scope options, and then rewrites the suppressions file:
 
 - every entry is written under its current identity, so an identity renamed by the maps is settled in the file;
 - with `--prune`, every stale entry is removed. An unverified entry is kept, since its finding may persist;
-- with `--accept TEXT`, every unsuppressed result of a producer receives an entry justified by `TEXT`, dated today, and authored by `--author NAME` when given. `--check NAME`, repeatable, restricts the accepted results to the named checks, so that each check receives its own justification. The results of the gate are never accepted.
+- with `--accept TEXT`, every unsuppressed result of a producer receives an entry justified by `TEXT`, dated today, and authored by `--author NAME` when given. `--only NAME`, repeatable, restricts the accepted results to the named checks, so that each check receives its own justification. The results of the gate are never accepted.
 
 The command exits 0 once the file is written, and 2 when an input is invalid, the configuration declares no suppressions file, or a file cannot be written. A legacy count baseline is converted by accepting, once, every finding that it tolerates: when the run holds no finding beyond the baseline, `update --accept` writes one entry per tolerated instance, its ordinal reproducing the count.

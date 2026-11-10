@@ -27,15 +27,16 @@ Pre-alpha. The package provides the identity builder of the profile and the runn
 
 ### Usage
 
-A consumer declares its checks, its severity policy and its suppressions file in one TOML configuration, and passes its path:
+A consumer declares its checks, its severity policy and its suppressions file in one TOML configuration, `config/tools/elenchos.toml` or `elenchos.toml` at its root. Elenchos finds the root from the current folder, or reads it from `--root` or the environment variable `ELENCHOS_ROOT`:
 
 ```sh
-elenchos check --config config/elenchos.toml
-elenchos check --config config/elenchos.toml --changed
-elenchos update --config config/elenchos.toml --prune
+elenchos check
+elenchos check --changed
+elenchos update --prune
+elenchos check --root PATH --config FILE
 ```
 
-The exit status is 0 when no result blocks, 1 when an unsuppressed result blocks, and 2 when an input is invalid. The [gate configuration](docs/configuration.md) specifies both files and the behaviour of the runner.
+The exit status is 0 when no result blocks, 1 when an unsuppressed result blocks, and 2 when an input is invalid or the configuration file is absent. The [gate configuration](docs/configuration.md) specifies both files and the behaviour of the runner.
 
 ---
 
