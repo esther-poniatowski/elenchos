@@ -28,7 +28,7 @@ Examples
 >>> from pathlib import Path
 >>> entries = parse_suppressions(
 ...     {
-...         "version": 1,
+...         "_schema": "elenchos:suppressions@1",
 ...         "suppressions": [
 ...             {"identity": "geonexus|links/broken|path:a.md|link:b.md", "justification": "old"}
 ...         ],
@@ -51,13 +51,19 @@ from .errors import ConfigurationError, ProfileError
 from .identity import Identity
 from .sarif import GATE_TOOL, JsonObject
 
-FORMAT_VERSION = 1
-"""Version of the suppressions format read by this release; its identities are `elenchos/v1`."""
+SUPPRESSIONS_SCHEMA = "elenchos:suppressions@1"
+"""Value of the key `_schema` of the suppressions format read by this release.
+
+The identities of format 1 are those of the profile key `elenchos/v1`.
+"""
+
+RETIRED_SCHEMA_KEY = "version"
+"""Key that declared the format before `_schema`; a file that holds it gets the value to write."""
 
 DATE_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 """Form of the date of an entry: an ISO 8601 calendar date."""
 
-_TOP_KEYS = frozenset({"version", "suppressions"})
+_TOP_KEYS = frozenset({"_schema", "suppressions"})
 _ENTRY_KEYS = frozenset({"identity", "justification", "date", "author"})
 
 
@@ -178,12 +184,10 @@ def parse_suppressions(data: Any, path: Path) -> dict[str, Suppression]:
     """
     if not isinstance(data, Mapping):
         raise _fail(path, "top level", "is not an object")
+    _check_schema(data, path)
     unknown = sorted(set(data) - _TOP_KEYS)
     if unknown:
         raise _fail(path, "top level", f"holds unknown keys {unknown}")
-    version = data.get("version")
-    if isinstance(version, bool) or version != FORMAT_VERSION:
-        raise _fail(path, "version", f"is not {FORMAT_VERSION}")
     array = data.get("suppressions")
     if not isinstance(array, list):
         raise _fail(path, "suppressions", "is not an array")
@@ -194,6 +198,21 @@ def parse_suppressions(data: Any, path: Path) -> dict[str, Suppression]:
             raise _fail(path, f"suppressions[{index}]", f"repeats the identity {entry.identity!r}")
         entries[entry.identity] = entry
     return entries
+
+
+def _check_schema(data: Mapping[str, Any], path: Path) -> None:
+    """Stop unless the document declares the format read by this release in `_schema`."""
+    if RETIRED_SCHEMA_KEY in data:
+        raise _fail(
+            path,
+            RETIRED_SCHEMA_KEY,
+            f'is retired; write `"_schema": "{SUPPRESSIONS_SCHEMA}"` as the first key',
+        )
+    schema = data.get("_schema")
+    if schema is None:
+        raise _fail(path, "_schema", f"is absent; expected `{SUPPRESSIONS_SCHEMA}`")
+    if schema != SUPPRESSIONS_SCHEMA:
+        raise _fail(path, "_schema", f"is {schema!r}; expected `{SUPPRESSIONS_SCHEMA}`")
 
 
 def load_suppressions(path: Path) -> dict[str, Suppression]:
@@ -308,5 +327,5 @@ def write_suppressions(entries: Iterable[Suppression], path: Path) -> None:
         if entry.author is not None:
             item["author"] = entry.author
         array.append(item)
-    document = {"version": FORMAT_VERSION, "suppressions": array}
+    document = {"_schema": SUPPRESSIONS_SCHEMA, "suppressions": array}
     path.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

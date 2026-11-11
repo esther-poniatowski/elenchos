@@ -86,12 +86,12 @@ def consumer(
         ]
     (root / "specs").mkdir(parents=True, exist_ok=True)
     (root / "specs" / "suppressions.json").write_text(
-        json.dumps({"version": 1, "suppressions": entries}), encoding="utf-8"
+        json.dumps({"_schema": "elenchos:suppressions@1", "suppressions": entries}), encoding="utf-8"
     )
     path = root / "config" / "tools" / "elenchos.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        f"""version = 3
+        f"""_schema = "elenchos:configuration@3"
 output = "build/gate.sarif"
 suppressions = "specs/suppressions.json"
 
@@ -427,3 +427,20 @@ def test_cli_reads_the_root_from_the_environment(tmp_path: Path, monkeypatch: An
     overridden = runner.invoke(app, ["check", "--root", str(tmp_path / "elsewhere")])
     assert overridden.exit_code == EXIT_ERROR
     assert "no configuration file" in overridden.output
+
+
+def test_configuration_with_the_old_key_exits_with_status_two(tmp_path: Path) -> None:
+    """A configuration file that still carries `version` stops the gate with status 2."""
+    path = consumer(tmp_path)
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            '_schema = "elenchos:configuration@3"', "version = 3"
+        ),
+        encoding="utf-8",
+    )
+
+    outcome = invoke(path)
+
+    assert outcome.exit_code == 2
+    assert '_schema = "elenchos:configuration@3"' in outcome.output
+

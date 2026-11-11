@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   configuration file, then from the current folder.
 - The configuration format is version 3. Every path of the file resolves against the root, never
   against the folder of the file. Versions 1 and 2 are no longer read.
+- The configuration file and the suppressions file declare their format as their first key:
+  `_schema = "elenchos:configuration@3"` and `"_schema": "elenchos:suppressions@1"`. The key
+  replaces `version`, without an alias. A file with an absent or another identifier stops with
+  status 2 and a message that names the expected value. A file that still carries `version`
+  receives the value to write; the suppressions file holds justifications written by a person, so
+  it is rewritten by hand. `elenchos update` writes `_schema`.
 
 ### Removed
 

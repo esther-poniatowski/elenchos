@@ -30,7 +30,7 @@ elenchos check --root PATH --config FILE              # both named explicitly
 The configuration is a TOML file, published as the JSON Schema [configuration.schema.json](../specs/schemas/configuration.schema.json). The commands of the example are illustrative: they assume producers that write the profile.
 
 ```toml
-version = 3
+_schema = "elenchos:configuration@3"
 output = "build/elenchos/gate.sarif"
 suppressions = "specs/suppressions.json"
 
@@ -57,7 +57,7 @@ block = ["error", "warning"]
 
 | Key | Status | Content |
 | --- | --- | --- |
-| `version` | required | `3`, the version of the format. Versions 1 and 2 are no longer read: they held a key `root`, and resolved the paths of the file against its folder |
+| `_schema` | required | `elenchos:configuration@3`, the first key of the file. Earlier formats are no longer read: they held a key `root`, and resolved the paths of the file against their folder. A file that still carries the former key `version` stops with status 2, and the message names the value to write |
 | `output` | required | the path where the merged log is written |
 | `suppressions` | optional | the path of the suppressions file, under the root; absent when the consumer tolerates no finding. A declared file must exist |
 | `policy.block` | required | the levels that block by default, among `error`, `warning` and `note` |
@@ -91,11 +91,11 @@ An empty list declares that no level blocks. A key of `policy.rules` holds the t
 
 ## 2. Suppressions file
 
-The suppressions file is a JSON file, published as the JSON Schema [suppressions.schema.json](../specs/schemas/suppressions.schema.json). Version 1 holds identities of the profile key `elenchos/v1`.
+The suppressions file is a JSON file, published as the JSON Schema [suppressions.schema.json](../specs/schemas/suppressions.schema.json). The key `_schema`, first in the file, is `elenchos:suppressions@1`; this format holds identities of the profile key `elenchos/v1`. The file cannot be regenerated, since it holds justifications written by a person, so a file that still carries the former key `version` stops with status 2, and the message names the value to write.
 
 ```json
 {
-  "version": 1,
+  "_schema": "elenchos:suppressions@1",
   "suppressions": [
     {
       "identity": "geonexus|links/broken|path:docs/a.md|link:b.md",

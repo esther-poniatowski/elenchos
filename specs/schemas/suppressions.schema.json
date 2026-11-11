@@ -5,11 +5,11 @@
   "description": "Suppressions file of a consumer: the identities of tolerated findings, each with its justification. Each identity is a canonical identity string of the profile key `elenchos/v1`, and occurs at most once; the schema cannot express canonicity, which the gate checks.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "suppressions"],
+  "required": ["_schema", "suppressions"],
   "properties": {
-    "version": {
-      "description": "Version of the suppressions format; version 1 holds identities of the profile key `elenchos/v1`.",
-      "const": 1
+    "_schema": {
+      "description": "Identifier of the suppressions format, first key of the file; format 1 holds identities of the profile key `elenchos/v1`.",
+      "const": "elenchos:suppressions@1"
     },
     "suppressions": {
       "type": "array",

@@ -6,15 +6,15 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "version",
+    "_schema",
     "output",
     "policy",
     "checks"
   ],
   "properties": {
-    "version": {
-      "description": "Version of the configuration format; version 3 retires `root`, and resolves every path against the root given on the command line.",
-      "const": 3
+    "_schema": {
+      "description": "Identifier of the configuration format, first key of the file; format 3 retires `root`, and resolves every path against the root given on the command line.",
+      "const": "elenchos:configuration@3"
     },
     "output": {
       "description": "Path where the merged SARIF log is written.",

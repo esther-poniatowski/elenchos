@@ -35,7 +35,7 @@ Examples
 >>> from pathlib import Path
 >>> configuration = parse_configuration(
 ...     {
-...         "version": 3,
+...         "_schema": "elenchos:configuration@3",
 ...         "output": "gate.sarif",
 ...         "policy": {"block": ["error"], "rules": {"geonexus|links/broken": ["warning"]}},
 ...         "checks": {"links": {"command": ["check-links"], "log": "links.sarif"}},
@@ -59,13 +59,16 @@ from .errors import ConfigurationError, ProfileError
 from .identity import RULE_PATTERN, TOOL_PATTERN, check_resource
 from .sarif import LEVELS
 
-FORMAT_VERSION = 3
-"""Version of the configuration format read by this release.
+CONFIGURATION_SCHEMA = "elenchos:configuration@3"
+"""Value of the key `_schema` of the configuration format read by this release.
 
-Version 3 retires the key `root`: the root comes from the command line, and every path of the file
-resolves against it. Versions 1 and 2, whose paths resolved against the folder of the file, are no
+Format 3 retires the key `root`: the root comes from the command line, and every path of the file
+resolves against it. Formats 1 and 2, whose paths resolved against the folder of the file, are no
 longer read.
 """
+
+RETIRED_SCHEMA_KEY = "version"
+"""Key that declared the format before `_schema`; a file that holds it gets the value to write."""
 
 SETTINGS_NAME = "elenchos.toml"
 """Name of the configuration file, below the root or in its folder `config/tools/`."""
@@ -85,7 +88,7 @@ CHECK_NAME_PATTERN = re.compile(r"[a-z][a-z0-9-]*")
 DEFAULT_EXIT_CODES = frozenset({0, 1})
 """Exit statuses meaning that a command ran to completion: 0 without findings, 1 with findings."""
 
-_TOP_KEYS = frozenset({"version", "output", "suppressions", "policy", "checks", "renames"})
+_TOP_KEYS = frozenset({"_schema", "output", "suppressions", "policy", "checks", "renames"})
 _POLICY_KEYS = frozenset({"block", "rules"})
 _CHECK_KEYS = frozenset({"command", "log", "exit_codes", "block", "scope"})
 _RENAMES_KEYS = frozenset({"rules", "resources"})
@@ -234,6 +237,22 @@ def _fail(path: Path, location: str, problem: str) -> ConfigurationError:
     return ConfigurationError(f"{path}: {location}: {problem}")
 
 
+def _check_schema(data: Any, path: Path) -> None:
+    """Stop unless the document declares the format read by this release in `_schema`."""
+    if isinstance(data, Mapping) and RETIRED_SCHEMA_KEY in data:
+        raise _fail(
+            path,
+            RETIRED_SCHEMA_KEY,
+            f'is retired; write `_schema = "{CONFIGURATION_SCHEMA}"` as the first key; format 3 '
+            "retires the key `root`, and resolves every path against the root",
+        )
+    schema = data.get("_schema") if isinstance(data, Mapping) else None
+    if schema is None:
+        raise _fail(path, "_schema", f"is absent; expected `{CONFIGURATION_SCHEMA}`")
+    if schema != CONFIGURATION_SCHEMA:
+        raise _fail(path, "_schema", f"is {schema!r}; expected `{CONFIGURATION_SCHEMA}`")
+
+
 def _table(value: Any, path: Path, location: str, allowed: frozenset[str]) -> Mapping[str, Any]:
     """Return a table after checking that it holds only the allowed keys."""
     if not isinstance(value, Mapping):
@@ -376,21 +395,14 @@ def parse_configuration(data: Mapping[str, Any], path: Path, root: Path) -> Conf
     Raises
     ------
     ConfigurationError
-        If a key is unknown or missing, the version is not the one read by this release, a value
+        If a key is unknown or missing, `_schema` is not the one read by this release, a value
         breaks its form, two checks share a log, the output coincides with a log, the
         configuration or suppressions file lies outside the root, or a rename map renames a value
         again.
     """
     path = path.resolve()
     root = root.resolve()
-    version = data.get("version") if isinstance(data, Mapping) else None
-    if isinstance(version, bool) or version != FORMAT_VERSION:
-        raise _fail(
-            path,
-            "version",
-            f"is not {FORMAT_VERSION}; version 3 retires the key `root`, and resolves every path "
-            "against the root",
-        )
+    _check_schema(data, path)
     table = _table(data, path, "top level", _TOP_KEYS)
     for key in ("output", "policy", "checks"):
         if key not in table:

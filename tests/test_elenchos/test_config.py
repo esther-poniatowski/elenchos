@@ -16,14 +16,14 @@ from elenchos.config import (
 )
 from elenchos.errors import ConfigurationError, ProfileError
 from elenchos.sarif import check_log
-from elenchos.suppressions import parse_suppressions
+from elenchos.suppressions import parse_suppressions, write_suppressions
 
 SPECS = Path(__file__).parents[2] / "specs"
 ROOT = Path("/consumer")
 CONFIG_PATH = ROOT / "config" / "tools" / "elenchos.toml"
 
 VALID_CONFIGURATION: dict[str, Any] = {
-    "version": 3,
+    "_schema": "elenchos:configuration@3",
     "output": "build/gate.sarif",
     "suppressions": "specs/suppressions.json",
     "policy": {"block": ["error"], "rules": {"terms|terms/advice": []}},
@@ -39,7 +39,7 @@ VALID_CONFIGURATION: dict[str, Any] = {
 }
 
 VALID_SUPPRESSIONS: dict[str, Any] = {
-    "version": 1,
+    "_schema": "elenchos:suppressions@1",
     "suppressions": [
         {
             "identity": "geonexus|links/broken|path:a.md|link:b.md",
@@ -64,6 +64,10 @@ CONFIGURATION_EDITS: dict[str, Callable[[dict[str, Any]], None]] = {
     "unknown-key": lambda d: d.update(extra=1),
     "version-2": lambda d: d.update(version=2),
     "retired-root": lambda d: d.update(root=".."),
+    "old-key": lambda d: (d.pop("_schema"), d.update(version=3)),
+    "no-schema": lambda d: d.pop("_schema"),
+    "wrong-schema": lambda d: d.update(_schema="elenchos:configuration@2"),
+    "other-tool-schema": lambda d: d.update(_schema="ktisma:configuration@2"),
     "unknown-scope": lambda d: d["checks"]["links"].update(scope="all"),
     "bad-rename-rule": lambda d: d.update(renames={"rules": {"a|b": "c"}}),
     "bad-rename-resource": lambda d: d.update(
@@ -85,6 +89,10 @@ CONFIGURATION_EDITS: dict[str, Callable[[dict[str, Any]], None]] = {
 SUPPRESSION_EDITS: dict[str, Callable[[dict[str, Any]], None]] = {
     "unknown-key": lambda d: d.update(extra=1),
     "version-2": lambda d: d.update(version=2),
+    "old-key": lambda d: (d.pop("_schema"), d.update(version=1)),
+    "no-schema": lambda d: d.pop("_schema"),
+    "wrong-schema": lambda d: d.update(_schema="elenchos:suppressions@9"),
+    "other-tool-schema": lambda d: d.update(_schema="elenchos:configuration@3"),
     "no-justification": lambda d: d["suppressions"][0].pop("justification"),
     "blank-justification": lambda d: d["suppressions"][0].update(justification="  "),
     "bad-date": lambda d: d["suppressions"][0].update(date="15/10/2026"),
@@ -316,3 +324,71 @@ def test_log_breaking_a_rule_of_the_verdict_is_rejected(case: str) -> None:
     holding an object that only the gate writes, is rejected."""
     with pytest.raises(ProfileError):
         check_log(edited(conforming_log(), LOG_EDITS[case]))
+
+
+# --- The `_schema` key ------------------------------------------------------------------------
+
+
+def test_configuration_declares_its_identifier_as_the_first_key() -> None:
+    """The accepted form names the format in `_schema`, first in the document."""
+    configuration = parse_configuration(VALID_CONFIGURATION, CONFIG_PATH, ROOT)
+    assert configuration.path == CONFIG_PATH.resolve()
+    assert next(iter(VALID_CONFIGURATION)) == "_schema"
+
+
+@pytest.mark.parametrize(
+    ("edit", "name"),
+    [
+        (lambda d: d.pop("_schema"), "absent"),
+        (lambda d: d.update(_schema="elenchos:configuration@2"), "wrong"),
+    ],
+    ids=["absent", "wrong"],
+)
+def test_configuration_names_the_expected_identifier(
+    edit: Callable[[dict[str, Any]], None], name: str
+) -> None:
+    """An absent or a wrong `_schema` stops the run and names the expected value."""
+    with pytest.raises(ConfigurationError, match="_schema") as excinfo:
+        parse_configuration(edited(VALID_CONFIGURATION, edit), CONFIG_PATH, ROOT)
+    assert "elenchos:configuration@3" in str(excinfo.value), name
+
+
+def test_configuration_with_the_old_key_names_the_value_to_write() -> None:
+    """The former key `version` is rejected with the assignment that replaces it."""
+    document = edited(VALID_CONFIGURATION, lambda d: (d.pop("_schema"), d.update(version=3)))
+    with pytest.raises(ConfigurationError, match='_schema = "elenchos:configuration@3"'):
+        parse_configuration(document, CONFIG_PATH, ROOT)
+
+
+@pytest.mark.parametrize(
+    ("edit", "name"),
+    [
+        (lambda d: d.pop("_schema"), "absent"),
+        (lambda d: d.update(_schema="elenchos:suppressions@9"), "wrong"),
+    ],
+    ids=["absent", "wrong"],
+)
+def test_suppressions_name_the_expected_identifier(
+    edit: Callable[[dict[str, Any]], None], name: str
+) -> None:
+    """An absent or a wrong `_schema` stops the run and names the expected value."""
+    with pytest.raises(ConfigurationError, match="_schema") as excinfo:
+        parse_suppressions(edited(VALID_SUPPRESSIONS, edit), Path("s.json"))
+    assert "elenchos:suppressions@1" in str(excinfo.value), name
+
+
+def test_suppressions_with_the_old_key_name_the_value_to_write() -> None:
+    """A suppressions file cannot be regenerated, so the old key is rejected with the fix."""
+    document = edited(VALID_SUPPRESSIONS, lambda d: (d.pop("_schema"), d.update(version=1)))
+    with pytest.raises(ConfigurationError, match='"_schema": "elenchos:suppressions@1"'):
+        parse_suppressions(document, Path("s.json"))
+
+
+def test_written_suppressions_declare_the_identifier_first(tmp_path: Path) -> None:
+    """The writer of the format writes `_schema` as the first key."""
+    target = tmp_path / "suppressions.json"
+    write_suppressions(parse_suppressions(VALID_SUPPRESSIONS, target).values(), target)
+    document = json.loads(target.read_text(encoding="utf-8"))
+    assert next(iter(document)) == "_schema"
+    assert document["_schema"] == "elenchos:suppressions@1"
+    assert "version" not in document

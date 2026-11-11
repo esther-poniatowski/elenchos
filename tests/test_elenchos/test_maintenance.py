@@ -33,11 +33,11 @@ def command(script: str, *arguments: str) -> str:
 def consumer(root: Path, entries: list[dict[str, Any]], renames: str = "") -> Path:
     """Write a consumer whose single check accepts paths, its configuration at the root."""
     (root / "suppressions.json").write_text(
-        json.dumps({"version": 1, "suppressions": entries}), encoding="utf-8"
+        json.dumps({"_schema": "elenchos:suppressions@1", "suppressions": entries}), encoding="utf-8"
     )
     path = root / "elenchos.toml"
     path.write_text(
-        f"""version = 3
+        f"""_schema = "elenchos:configuration@3"
 output = "build/gate.sarif"
 suppressions = "suppressions.json"
 
