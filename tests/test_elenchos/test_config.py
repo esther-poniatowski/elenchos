@@ -10,6 +10,7 @@ import pytest
 
 from elenchos.config import (
     DEFAULT_EXIT_CODES,
+    Check,
     find_root,
     locate_configuration,
     parse_configuration,
@@ -73,7 +74,6 @@ CONFIGURATION_EDITS: dict[str, Callable[[dict[str, Any]], None]] = {
     "bad-rename-resource": lambda d: d.update(
         renames={"resources": {"docs/a.md": "path:docs/b.md"}}
     ),
-    "no-output": lambda d: d.pop("output"),
     "no-policy-block": lambda d: d["policy"].pop("block"),
     "unknown-level": lambda d: d["policy"].update(block=["fatal"]),
     "repeated-level": lambda d: d["policy"].update(block=["error", "error"]),
@@ -81,7 +81,6 @@ CONFIGURATION_EDITS: dict[str, Callable[[dict[str, Any]], None]] = {
     "no-check": lambda d: d.update(checks={}),
     "bad-check-name": lambda d: d["checks"].update({"Links": d["checks"]["links"]}),
     "empty-command": lambda d: d["checks"]["links"].update(command=[]),
-    "no-log": lambda d: d["checks"]["links"].pop("log"),
     "boolean-exit-code": lambda d: d["checks"]["links"].update(exit_codes=[True]),
     "unknown-check-key": lambda d: d["checks"]["links"].update(shell=True),
 }
@@ -114,6 +113,27 @@ def test_valid_configuration_resolves_paths_against_the_root() -> None:
     assert configuration.relative(configuration.path) == "config/tools/elenchos.toml"
 
 
+def test_output_and_logs_default_to_the_build_folder_of_the_tool() -> None:
+    """Without `output` and `log`, the results go to `build/elenchos/`, one log per check name."""
+
+    def edit(document: dict[str, Any]) -> None:
+        document.pop("output")
+        document["checks"]["links"].pop("log")
+
+    configuration = parse_configuration(edited(VALID_CONFIGURATION, edit), CONFIG_PATH, ROOT)
+    root = ROOT.resolve()
+    assert configuration.output == root / "build" / "elenchos" / "gate.sarif"
+    assert configuration.checks[0].log == root / "build" / "elenchos" / "links.sarif"
+    assert configuration.checks[1].log == root / "logs" / "terms.sarif"
+
+
+def test_the_placeholder_names_the_log_in_each_argument() -> None:
+    """`{log}` is replaced by the absolute path of the log, inside any argument of the command."""
+    check = Check("links", ("check-links", "--output={log}", "{log}", "--root"), Path("/r/l.sarif"))
+    assert check.arguments == ("check-links", "--output=/r/l.sarif", "/r/l.sarif", "--root")
+    assert check.command == ("check-links", "--output={log}", "{log}", "--root")
+
+
 def test_checks_keep_the_order_of_the_file() -> None:
     """Checks run in the order in which the file declares them."""
     configuration = parse_configuration(VALID_CONFIGURATION, CONFIG_PATH, ROOT)
@@ -135,8 +155,14 @@ def test_invalid_configuration_is_rejected(case: str) -> None:
         lambda d: d.update(suppressions="../outside.json"),
         lambda d: d["checks"]["terms"].update(log="logs/links.sarif"),
         lambda d: d.update(output="logs/links.sarif"),
+        lambda d: (d.pop("output"), d["checks"].update(gate={"command": ["check-gate"]})),
+        lambda d: (
+            d["checks"]["links"].pop("log"),
+            d["checks"]["terms"].update(log="build/elenchos/links.sarif"),
+        ),
     ],
-    ids=["suppressions-outside", "shared-log", "output-is-a-log"],
+    ids=["suppressions-outside", "shared-log", "output-is-a-log", "default-output-is-a-default-log",
+         "log-is-a-default-log"],
 )
 def test_path_rules_beyond_the_schema_are_rejected(edit: Callable[[dict[str, Any]], None]) -> None:
     """The loader rejects the path rules that a JSON Schema cannot state."""
@@ -255,6 +281,17 @@ def schema_accepts(name: str, document: dict[str, Any]) -> bool:
     jsonschema = pytest.importorskip("jsonschema")
     schema = json.loads((SPECS / "schemas" / name).read_text())
     return bool(jsonschema.Draft202012Validator(schema).is_valid(document))
+
+
+def test_configuration_schema_accepts_the_default_places() -> None:
+    """The published configuration schema accepts a file without `output` and without `log`."""
+
+    def edit(document: dict[str, Any]) -> None:
+        document.pop("output")
+        document["checks"]["links"].pop("log")
+        document["checks"]["links"]["command"] = ["check-links", "--output", "{log}"]
+
+    assert schema_accepts("configuration.schema.json", edited(VALID_CONFIGURATION, edit))
 
 
 def test_schemas_accept_the_valid_documents() -> None:

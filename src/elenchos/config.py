@@ -88,6 +88,15 @@ CHECK_NAME_PATTERN = re.compile(r"[a-z][a-z0-9-]*")
 DEFAULT_EXIT_CODES = frozenset({0, 1})
 """Exit statuses meaning that a command ran to completion: 0 without findings, 1 with findings."""
 
+RESULTS_FOLDER = Path("build") / "elenchos"
+"""Folder, relative to the root, of the results of the gate when the configuration places none."""
+
+DEFAULT_OUTPUT = RESULTS_FOLDER / "gate.sarif"
+"""Place of the merged log, relative to the root, when the configuration declares no `output`."""
+
+LOG_PLACEHOLDER = "{log}"
+"""Text replaced, in each argument of the command of a check, by the absolute path of its log."""
+
 _TOP_KEYS = frozenset({"_schema", "output", "suppressions", "policy", "checks", "renames"})
 _POLICY_KEYS = frozenset({"block", "rules"})
 _CHECK_KEYS = frozenset({"command", "log", "exit_codes", "block", "scope"})
@@ -104,9 +113,10 @@ class Check:
     name : str
         Name of the check, unique in the configuration.
     command : tuple[str, ...]
-        Argument vector of the command, run without a shell in the root of the consumer.
+        Argument vector of the command as declared, which may hold the placeholder `{log}`.
     log : Path
-        Absolute path of the SARIF log written by the command.
+        Absolute path of the SARIF log written by the command: the declared `log`, or
+        `build/elenchos/<name>.sarif` below the root.
     exit_codes : frozenset[int]
         Exit statuses meaning that the command ran to completion.
     block : frozenset[str] | None
@@ -123,6 +133,23 @@ class Check:
     exit_codes: frozenset[int] = DEFAULT_EXIT_CODES
     block: frozenset[str] | None = None
     scope: str = "root"
+
+    @property
+    def arguments(self) -> tuple[str, ...]:
+        """
+        Return the argument vector to run: the command, with `{log}` replaced by the log.
+
+        Examples
+        --------
+        >>> Check("links", ("check-links", "--output={log}"), Path("/r/links.sarif")).arguments
+        ('check-links', '--output=/r/links.sarif')
+        """
+        return tuple(argument.replace(LOG_PLACEHOLDER, str(self.log)) for argument in self.command)
+
+    @property
+    def names_log(self) -> bool:
+        """Whether an argument of the command holds the placeholder `{log}`."""
+        return any(LOG_PLACEHOLDER in argument for argument in self.command)
 
 
 @dataclass(frozen=True)
@@ -353,9 +380,8 @@ def _check(name: str, value: Any, path: Path, root: Path) -> Check:
     if not CHECK_NAME_PATTERN.fullmatch(name):
         raise _fail(path, location, f"name does not match {CHECK_NAME_PATTERN.pattern}")
     table = _table(value, path, location, _CHECK_KEYS)
-    for key in ("command", "log"):
-        if key not in table:
-            raise _fail(path, location, f"declares no `{key}`")
+    if "command" not in table:
+        raise _fail(path, location, "declares no `command`")
     command = table["command"]
     if not isinstance(command, list) or not command:
         raise _fail(path, f"{location}.command", "is not a non-empty list of strings")
@@ -364,10 +390,15 @@ def _check(name: str, value: Any, path: Path, root: Path) -> Check:
     scope = table.get("scope", "root")
     if scope not in SCOPES:
         raise _fail(path, f"{location}.scope", f"is not one of {list(SCOPES)}")
+    log = (
+        _text(table["log"], path, f"{location}.log")
+        if "log" in table
+        else RESULTS_FOLDER / f"{name}.sarif"
+    )
     return Check(
         name,
         arguments,
-        (root / _text(table["log"], path, f"{location}.log")).resolve(),
+        (root / log).resolve(),
         _exit_codes(table.get("exit_codes", [0, 1]), path, f"{location}.exit_codes"),
         None if block is None else _levels(block, path, f"{location}.block"),
         scope,
@@ -398,13 +429,14 @@ def parse_configuration(data: Mapping[str, Any], path: Path, root: Path) -> Conf
         If a key is unknown or missing, `_schema` is not the one read by this release, a value
         breaks its form, two checks share a log, the output coincides with a log, the
         configuration or suppressions file lies outside the root, or a rename map renames a value
-        again.
+        again. A log or an output left undeclared takes its default place before these rules
+        apply.
     """
     path = path.resolve()
     root = root.resolve()
     _check_schema(data, path)
     table = _table(data, path, "top level", _TOP_KEYS)
-    for key in ("output", "policy", "checks"):
+    for key in ("policy", "checks"):
         if key not in table:
             raise _fail(path, "top level", f"declares no `{key}`")
     if not path.is_relative_to(root):
@@ -418,7 +450,9 @@ def parse_configuration(data: Mapping[str, Any], path: Path, root: Path) -> Conf
     if not checks_table:
         raise _fail(path, "checks", "declares no check")
     checks = tuple(_check(name, value, path, root) for name, value in checks_table.items())
-    output = (root / _text(table["output"], path, "output")).resolve()
+    output = (
+        root / (_text(table["output"], path, "output") if "output" in table else DEFAULT_OUTPUT)
+    ).resolve()
     logs = [check.log for check in checks]
     if len(set(logs)) != len(logs):
         raise _fail(path, "checks", "two checks declare one log")

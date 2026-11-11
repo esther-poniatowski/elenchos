@@ -9,7 +9,7 @@ aliases:
 
 This specification fixes the two files through which a consumer declares the inputs of the gate: the configuration, listing the checks and the severity policy, and the suppressions file, listing the tolerated findings. It also fixes how `elenchos check` runs the checks and decides its exit status. The grounds of each choice, and the options weighed, are recorded in the [decision on the runner and the suppressions](adr/runner-and-suppressions.md). The SARIF objects that the gate reads and writes follow the [findings profile](profile.md).
 
-The configuration names every path of the consumer. Elenchos itself locates only the root of the consumer and the configuration file:
+The configuration names the paths of the consumer. Elenchos itself locates the root of the consumer and the configuration file, and places the logs and the merged log in `build/elenchos/` when the configuration places none:
 
 ```sh
 elenchos check                                        # from the root or any folder below it
@@ -31,7 +31,6 @@ The configuration is a TOML file, published as the JSON Schema [configuration.sc
 
 ```toml
 _schema = "elenchos:configuration@3"
-output = "build/elenchos/gate.sarif"
 suppressions = "specs/suppressions.json"
 
 [policy]
@@ -44,13 +43,11 @@ block = ["error"]
 "geonexus|links/broken" = "anagraphe|references/broken"
 
 [checks.links]
-command = ["python", "utils/scripts/check_links.py", "--format", "sarif", "--output", "build/elenchos/links.sarif"]
-log = "build/elenchos/links.sarif"
+command = ["python", "utils/scripts/check_links.py", "--format", "sarif", "--output", "{log}"]
 scope = "paths"
 
 [checks.glossary]
-command = ["python", "utils/scripts/check_glossary.py", "--format", "sarif", "--output", "build/elenchos/glossary.sarif"]
-log = "build/elenchos/glossary.sarif"
+command = ["python", "utils/scripts/check_glossary.py", "--format", "sarif", "--output", "{log}"]
 exit_codes = [0, 1]
 block = ["error", "warning"]
 ```
@@ -58,13 +55,13 @@ block = ["error", "warning"]
 | Key | Status | Content |
 | --- | --- | --- |
 | `_schema` | required | `elenchos:configuration@3`, the first key of the file. Earlier formats are no longer read: they held a key `root`, and resolved the paths of the file against their folder. A file that still carries the former key `version` stops with status 2, and the message names the value to write |
-| `output` | required | the path where the merged log is written |
+| `output` | optional | the path where the merged log is written; `build/elenchos/gate.sarif` when absent |
 | `suppressions` | optional | the path of the suppressions file, under the root; absent when the consumer tolerates no finding. A declared file must exist |
 | `policy.block` | required | the levels that block by default, among `error`, `warning` and `note` |
 | `policy.rules` | optional | the levels that block for one rule, keyed by `tool|ruleId` |
 | `checks.<name>` | at least one | one check, named by `[a-z][a-z0-9-]*`; the checks run in the order of the file |
-| `checks.<name>.command` | required | the argument vector of the command that writes one SARIF log; it runs without a shell, in the root |
-| `checks.<name>.log` | required | the path of the log written by the command; unique among the checks, and distinct from `output` |
+| `checks.<name>.command` | required | the argument vector of the command that writes one SARIF log; it runs without a shell, in the root. The placeholder `{log}` names the log of the check |
+| `checks.<name>.log` | optional | the path of the log written by the command, `build/elenchos/<name>.sarif` when absent; unique among the checks, and distinct from `output` |
 | `checks.<name>.exit_codes` | optional | the exit statuses meaning that the command ran to completion; `[0, 1]` when absent |
 | `checks.<name>.block` | optional | the levels that block for the results of this check, in place of `policy.block` |
 | `checks.<name>.scope` | optional | `paths` when the command accepts paths appended to its argument vector, so that a scoped run checks only those paths; `root`, the default, when it always checks the whole root |
@@ -72,6 +69,8 @@ block = ["error", "warning"]
 | `renames.resources` | optional | the new resource of a moved or newly identified resource, keyed by its former resource (`path:<path>` or `id:<identifier>`) |
 
 **Paths.** Every relative path of the file resolves against the root, never against the folder of the file, so the file moves between the root and `config/tools/` without an edit. The configuration file and the suppressions file lie under the root, since the gate names them as resources (`path:`) in its own results. Logs and the output may lie anywhere.
+
+**Logs.** A command must write its log where the gate reads it. Before running a command, the gate replaces the text `{log}`, in each argument, by the absolute path of the log of the check: the declared `log`, or `build/elenchos/<name>.sarif` below the root. The text may form a whole argument, `"{log}"`, or a part of one, `"--output={log}"`. The paths of a scoped run are appended after this replacement, unchanged. A command that holds no placeholder runs as written, so it names its log itself: by repeating the declared `log`, as a configuration written before the placeholder does, or by writing at the default place. A check that declares no `log` and holds no placeholder is therefore accepted: when its command writes no log at the default place, the check fails with `check/missing-log`, and the message names the default place and the placeholder. The defaults obey the rule of unique logs: a check named `gate` without `log` coincides with the default output, and is rejected unless `output` or its `log` is declared.
 
 **Severity policy.** A result of a producer carries the default level written by its producer, and the gate does not rewrite it ([profile, section 4.2](profile.md#42-level)). The levels that block for a result are taken from the most specific declaration:
 

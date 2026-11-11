@@ -320,6 +320,72 @@ def test_log_of_an_earlier_run_is_never_read(tmp_path: Path) -> None:
     assert not leftover.exists()
 
 
+def default_log_consumer(root: Path, *arguments: str, log: str | None = None) -> Path:
+    """Write a consumer of one check `linker`, without `output`, with `log` only when given."""
+    path = root / "elenchos.toml"
+    root.mkdir(parents=True, exist_ok=True)
+    declared = "" if log is None else f'log = "{log}"\n'
+    path.write_text(
+        f"""_schema = "elenchos:configuration@3"
+
+[policy]
+block = ["error"]
+
+[checks.linker]
+command = {command("linker_check.py", *arguments)}
+{declared}""",
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_placeholder_passes_the_default_log_to_the_command(tmp_path: Path) -> None:
+    """A check without `log` writes the log named by `{log}`, in `build/elenchos/<name>.sarif`."""
+    configuration = load_configuration(default_log_consumer(tmp_path, "{log}"), tmp_path)
+    outcome = run_check(configuration.checks[0], configuration.root)
+    assert outcome.failure is None
+    assert [run["tool"]["driver"]["name"] for run in outcome.runs] == ["linker"]
+    assert (tmp_path / "build" / "elenchos" / "linker.sarif").is_file()
+    assert not (tmp_path / "{log}").exists()
+
+
+def test_placeholder_passes_a_declared_log_to_the_command(tmp_path: Path) -> None:
+    """With `log` declared, `{log}` names that log."""
+    path = default_log_consumer(tmp_path, "{log}", log="logs/custom.sarif")
+    configuration = load_configuration(path, tmp_path)
+    outcome = run_check(configuration.checks[0], configuration.root)
+    assert outcome.failure is None
+    assert (tmp_path / "logs" / "custom.sarif").is_file()
+
+
+def test_command_writing_the_default_log_needs_no_placeholder(tmp_path: Path) -> None:
+    """A check without `log` nor `{log}` is read at the default place, where its command writes."""
+    path = default_log_consumer(tmp_path, "build/elenchos/linker.sarif")
+    configuration = load_configuration(path, tmp_path)
+    assert run_check(configuration.checks[0], configuration.root).failure is None
+
+
+def test_missing_log_without_placeholder_names_the_place_and_the_placeholder(
+    tmp_path: Path,
+) -> None:
+    """A command that writes its log elsewhere than the default place is told how to name it."""
+    configuration = load_configuration(default_log_consumer(tmp_path, "logs/linker.sarif"), tmp_path)
+    failure = run_check(configuration.checks[0], configuration.root).failure
+    assert failure is not None
+    assert failure.rule_id == CHECK_MISSING_LOG
+    assert "build/elenchos/linker.sarif" in failure.message
+    assert "{log}" in failure.message
+
+
+def test_cli_writes_the_merged_log_at_the_default_output(tmp_path: Path) -> None:
+    """Without `output`, `elenchos check` writes the merged log at `build/elenchos/gate.sarif`."""
+    default_log_consumer(tmp_path, "{log}")
+    outcome = CliRunner().invoke(app, ["check", "--root", str(tmp_path)])
+    assert outcome.exit_code == EXIT_BLOCKED, outcome.output
+    merged = json.loads((tmp_path / "build" / "elenchos" / "gate.sarif").read_text())
+    assert merged["version"] == "2.1.0"
+
+
 def test_log_path_that_cannot_be_deleted_is_a_failed_check(tmp_path: Path) -> None:
     """A declared log path holding a folder is reported, not raised."""
     path = consumer(tmp_path, "silent", entries=[])

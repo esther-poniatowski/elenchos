@@ -259,8 +259,10 @@ def run_check(check: Check, root: Path, scope: Sequence[str] | None = None) -> C
     """
     Run one check, on the paths of a scoped run when it accepts paths, and read its log.
 
-    The log declared by the check is deleted before the command runs, so that a log left by an
-    earlier run is never read. The command runs without a shell, in the root of the consumer.
+    The log of the check is deleted before the command runs, so that a log left by an earlier run
+    is never read. The command runs without a shell, in the root of the consumer, with each
+    placeholder `{log}` of its arguments replaced by the absolute path of the log; the paths of a
+    scoped run are appended unchanged.
     In a scoped run, a check of scope `paths` receives the paths appended to its command, and is
     skipped when the run holds no path; a check of scope `root` checks the whole root.
 
@@ -282,7 +284,7 @@ def run_check(check: Check, root: Path, scope: Sequence[str] | None = None) -> C
     scoped = scope is not None and check.scope == "paths"
     if scoped and not scope:
         return CheckOutcome(check, skipped=True)
-    arguments = [*check.command, *(scope or [])] if scoped else list(check.command)
+    arguments = [*check.arguments, *(scope or [])] if scoped else list(check.arguments)
     paths = frozenset(scope or []) if scoped else None
     try:
         check.log.unlink(missing_ok=True)
@@ -301,6 +303,8 @@ def run_check(check: Check, root: Path, scope: Sequence[str] | None = None) -> C
         return CheckOutcome(check, failure=Failure(CHECK_FAILED, message), scope=paths)
     if not check.log.is_file():
         message = f"command wrote no log at {_display(check.log, root)}"
+        if not check.names_log:
+            message += "; pass that path to the command with the placeholder `{log}`"
         return CheckOutcome(check, failure=Failure(CHECK_MISSING_LOG, message), scope=paths)
     try:
         log = json.loads(check.log.read_text(encoding="utf-8"))

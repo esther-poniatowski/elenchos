@@ -7,7 +7,6 @@
   "additionalProperties": false,
   "required": [
     "_schema",
-    "output",
     "policy",
     "checks"
   ],
@@ -19,7 +18,8 @@
     "output": {
       "description": "Path where the merged SARIF log is written.",
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "default": "build/elenchos/gate.sarif"
     },
     "suppressions": {
       "description": "Path of the suppressions file, under the root; absent when the consumer tolerates no finding.",
@@ -107,12 +107,11 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "command",
-        "log"
+        "command"
       ],
       "properties": {
         "command": {
-          "description": "Argument vector of the command that writes one SARIF log, run without a shell in the root.",
+          "description": "Argument vector of the command that writes one SARIF log, run without a shell in the root. The placeholder `{log}`, in any argument, is replaced by the absolute path of the log.",
           "type": "array",
           "minItems": 1,
           "items": {
@@ -121,7 +120,7 @@
           }
         },
         "log": {
-          "description": "Path of the SARIF log written by the command; unique among the checks, and distinct from the output.",
+          "description": "Path of the SARIF log written by the command, `build/elenchos/<name>.sarif` when absent; unique among the checks, and distinct from the output.",
           "type": "string",
           "minLength": 1
         },
