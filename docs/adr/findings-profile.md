@@ -26,7 +26,7 @@ The [decision on tool roles](https://github.com/esther-poniatowski/geonexus/blob
 
 **Incomplete runs declared as failed.** A partial run, stopped by design, and a failed run both hold one invocation with `executionSuccessful` false and a notification of level `error` stating why the analysis stopped. A partial run holds the results detected before the stop; a failed run whose analysis never began omits `results`. ^incomplete-runs
 
-**Locations without a node of their own.** A finding on a field absent from the record takes the region of the closest existing ancestor node, and keeps the pointer of the missing field as locus. A finding on a file that exists only in a fetched dependency source is located where the consumer would materialize the file. A field path converts to a JSON Pointer by the conversion that the profile states, until the addressing specification of Anagraphe publishes it. ^absent-nodes
+**Locations without a node of their own.** A finding on a field absent from the record takes the region of the closest existing ancestor node, and keeps the pointer of the missing field as locus. A finding on a file that exists only in a fetched dependency source is located where the consumer would materialize the file. A field path converts to a JSON Pointer by the [field-path specification of Anagraphe](https://github.com/esther-poniatowski/anagraphe/blob/main/docs/specification/field-paths.md), which the profile cites. ^absent-nodes
 
 **Identity string.** The identity is `tool|ruleId|resource|locus|discriminator[|ordinal]`. Each component is normalized to NFC, then `%`, `|` and control characters are percent-escaped. Trailing empty components are removed, and a parser accepts a string only in its canonical form. ^identity-string
 

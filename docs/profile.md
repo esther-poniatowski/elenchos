@@ -209,17 +209,10 @@ The elements of `logicalLocations` are alternative expressions of *one* location
 **Locus.** The locus takes one of three forms:
 
 - the empty locus, which denotes the whole resource. It is also the deterministic fallback when malformed content supplies no locus;
-- a JSON Pointer (RFC 6901), opening on `/`, for a key path in structured data; each `~` is followed by `0` or `1`. A field path converts to a pointer as stated below. The pointer to the whole document, the empty string in RFC 6901, coincides with the empty locus;
+- a JSON Pointer (RFC 6901), opening on `/`, for a key path in structured data; each `~` is followed by `0` or `1`. A field path converts to a pointer by the specification cited below. The pointer to the whole document, the empty string in RFC 6901, coincides with the empty locus;
 - a typed locus `<type>:<value>`, with a type from a closed list: `link:<target as written>`, `task:<id>`, `slot:<name>`, `term:<glossary id>`, `symbol:<notation id>`.
 
-**Field paths.** A field path, such as a field path of Ekphrasis, is a sequence of segments, each a key or an index. It converts to a JSON Pointer as follows:
-
-- the empty sequence, the whole document, converts to the empty string;
-- each segment contributes `/` followed by its token;
-- the token of an index is its decimal form, without leading zero (RFC 6901, section 4);
-- the token of a key is the key with each `~` replaced by `~0`, and then each `/` replaced by `~1` (RFC 6901, section 3). The order matters: the reverse order would turn `/` into `~01`.
-
-For example, `relations[2].target` converts to `/relations/2/target`, the key `a/b` to `/a~1b`, the key `c~1d` to `/c~01d`, and the empty key to `/`. A key written in digits and an index of equal value yield one token; they cannot collide, since one parent is either a mapping or a sequence. A producer converts the segments, not the printed form of the path, since a printed form need not quote every key that holds `.`, `[` or `"`. This conversion moves to the addressing specification of Anagraphe once that specification is published; the profile will then cite it.
+**Field paths.** A field path, such as `relations[2].target`, names one node of a structured document by its keys and positions. The [field-path specification of Anagraphe](https://github.com/esther-poniatowski/anagraphe/blob/main/docs/specification/field-paths.md) fixes its syntax and its conversion to a JSON Pointer, as [ADR 0008 of Anagraphe](https://github.com/esther-poniatowski/anagraphe/blob/main/docs/adr/0008-field-paths.md) decides. The conformance cases of that specification hold the vectors of the conversion, among them `relations[2].target` to `/relations/2/target`, the key `a/b` to `/a~1b`, and the empty key to `/`.
 
 A new locus type takes a new version of the profile. The types `term` and `symbol` extend the list of the [decision on stable checker finding identities](https://github.com/esther-poniatowski/geonexus/blob/main/docs/_decisions/stable-checker-finding-identities.md), which admits key paths, task identifiers, link targets and generated slots.
 
