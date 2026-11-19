@@ -5,7 +5,7 @@ A suppressions file lists the findings that a consumer accepts as debts. Each en
 identity of the findings profile and states its justification. The gate applies each entry as an
 external suppression with status `accepted`, and reports an entry matching no result as stale, so
 that the file may only shrink. The format is published as the JSON Schema
-`specs/schemas/suppressions.schema.json`, and specified in `docs/configuration.md`.
+`src/elenchos/schemas/suppressions.schema.json`, and specified in `docs/configuration.md`.
 
 Classes
 -------

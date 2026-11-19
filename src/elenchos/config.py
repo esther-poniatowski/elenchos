@@ -6,7 +6,7 @@ The consumer declares every input of the gate in one TOML file, `elenchos.toml`,
 given by `--config`. The root is given by `--root`, by the environment variable `ELENCHOS_ROOT`, or
 found as the nearest ancestor of the current folder that holds the file; every path written in the
 file resolves against it. The format is published as the JSON Schema
-`specs/schemas/configuration.schema.json`, and specified in `docs/configuration.md`.
+`src/elenchos/schemas/configuration.schema.json`, and specified in `docs/configuration.md`.
 
 Classes
 -------

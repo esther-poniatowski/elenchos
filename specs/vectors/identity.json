@@ -10,7 +10,18 @@
           "tool": {
             "driver": {
               "name": "anagraphe",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "the rule references/broken"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -60,7 +71,18 @@
           "tool": {
             "driver": {
               "name": "anagraphe",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "the rule references/broken"
+                  },
+                  "defaultConfiguration": {
+                    "level": "warning"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -110,7 +132,18 @@
           "tool": {
             "driver": {
               "name": "ekthesis",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "schema-conformance",
+                  "shortDescription": {
+                    "text": "the rule schema-conformance"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -147,7 +180,18 @@
           "tool": {
             "driver": {
               "name": "gnomon",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "schema-conformance",
+                  "shortDescription": {
+                    "text": "the rule schema-conformance"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -198,7 +242,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "structure/missing-kind",
+                  "shortDescription": {
+                    "text": "the rule structure/missing-kind"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -244,7 +299,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "metadata-options/stale-metadata-options",
+                  "shortDescription": {
+                    "text": "the rule metadata-options/stale-metadata-options"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -290,7 +356,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "glossary/forbidden-term",
+                  "shortDescription": {
+                    "text": "the rule glossary/forbidden-term"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -433,7 +510,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "links/broken",
+                  "shortDescription": {
+                    "text": "the rule links/broken"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -510,7 +598,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "glossary/gloss-form",
+                  "shortDescription": {
+                    "text": "the rule glossary/gloss-form"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -560,7 +659,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "glossary/undeclared-concept",
+                  "shortDescription": {
+                    "text": "the rule glossary/undeclared-concept"
+                  },
+                  "defaultConfiguration": {
+                    "level": "warning"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -613,7 +723,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "example/key",
+                  "shortDescription": {
+                    "text": "the rule example/key"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -663,7 +784,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "anagraphe-x/broken",
+                  "shortDescription": {
+                    "text": "the rule anagraphe-x/broken"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -713,7 +845,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "example/nfc",
+                  "shortDescription": {
+                    "text": "the rule example/nfc"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -759,7 +902,18 @@
           "tool": {
             "driver": {
               "name": "ekthesis",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "existing-references",
+                  "shortDescription": {
+                    "text": "the rule existing-references"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -832,7 +986,18 @@
           "tool": {
             "driver": {
               "name": "kleisis",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "source/unavailable",
+                  "shortDescription": {
+                    "text": "the rule source/unavailable"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -894,7 +1059,8 @@
           "tool": {
             "driver": {
               "name": "kleisis",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": []
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -916,7 +1082,18 @@
           "tool": {
             "driver": {
               "name": "ekthesis",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "unique-identifiers",
+                  "shortDescription": {
+                    "text": "the rule unique-identifiers"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -954,6 +1131,67 @@
     },
     "expected": [
       "ekthesis|unique-identifiers|path:records/a.yml"
+    ]
+  },
+  {
+    "case": "keyed-entry",
+    "description": "a locus naming an entry of a keyed list by its key",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "gnomon",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "vocabulary/unresolved",
+                  "shortDescription": {
+                    "text": "the rule vocabulary/unresolved"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "vocabulary/unresolved",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "specs/model.yml",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 7,
+                      "startColumn": 9
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:specs/model.yml#/variables/symbol=u/signature/1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected": [
+      "gnomon|vocabulary/unresolved|path:specs/model.yml|/variables/symbol=u/signature/1"
     ]
   }
 ]

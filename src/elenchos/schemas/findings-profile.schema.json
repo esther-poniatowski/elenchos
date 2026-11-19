@@ -1,0 +1,575 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/esther-poniatowski/elenchos/specs/schemas/findings-profile.schema.json",
+  "title": "Elenchos findings profile, version 1",
+  "description": "a SARIF 2.1.0 log written by a producer of findings under version 1 of the findings profile of Elenchos (docs/profile.md, sections 3 and 4). Four rules relate two members of a log and lie outside JSON Schema; the interfaces elenchos.profile and @elenchos/profile check them. Each pattern follows ECMA-262, where $ matches only at the end of the string",
+  "type": "object",
+  "required": [
+    "version",
+    "runs"
+  ],
+  "properties": {
+    "version": {
+      "const": "2.1.0"
+    },
+    "$schema": {
+      "description": "the schema of SARIF 2.1.0, errata 01",
+      "const": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json"
+    },
+    "runs": {
+      "description": "one run per invocation of a producer",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/run"
+      }
+    }
+  },
+  "$defs": {
+    "run": {
+      "description": "one invocation of a producer: its tool, its invocation when incomplete, and its results",
+      "type": "object",
+      "required": [
+        "tool"
+      ],
+      "properties": {
+        "tool": {
+          "type": "object",
+          "required": [
+            "driver"
+          ],
+          "properties": {
+            "driver": {
+              "$ref": "#/$defs/driver"
+            }
+          }
+        },
+        "invocations": {
+          "description": "exactly one invocation, required for an incomplete run",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/invocation"
+          }
+        },
+        "results": {
+          "description": "every result detected by the run; absent, never null, when the analysis never began",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/result"
+          }
+        },
+        "columnKind": {
+          "enum": [
+            "unicodeCodePoints",
+            "utf16CodeUnits"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "description": "a run that declares no failure holds results",
+          "if": {
+            "$ref": "#/$defs/failed-run"
+          },
+          "else": {
+            "required": [
+              "results"
+            ]
+          }
+        },
+        {
+          "description": "a run with results states its column kind",
+          "if": {
+            "required": [
+              "results"
+            ],
+            "properties": {
+              "results": {
+                "minItems": 1
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "columnKind"
+            ]
+          }
+        }
+      ]
+    },
+    "failed-run": {
+      "description": "a run whose invocation declares a failure, by executionSuccessful false or by a notification of level error",
+      "required": [
+        "invocations"
+      ],
+      "properties": {
+        "invocations": {
+          "contains": {
+            "anyOf": [
+              {
+                "required": [
+                  "executionSuccessful"
+                ],
+                "properties": {
+                  "executionSuccessful": {
+                    "const": false
+                  }
+                }
+              },
+              {
+                "required": [
+                  "toolExecutionNotifications"
+                ],
+                "properties": {
+                  "toolExecutionNotifications": {
+                    "contains": {
+                      "$ref": "#/$defs/error-notification"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "driver": {
+      "description": "the tool of the run, with its version and every rule that it can emit",
+      "type": "object",
+      "required": [
+        "name",
+        "rules"
+      ],
+      "properties": {
+        "name": {
+          "description": "a tool name of lowercase letters, digits and hyphens, other than elenchos, which names the run of the gate",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "not": {
+            "const": "elenchos"
+          }
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "semanticVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/descriptor"
+          }
+        },
+        "isComprehensive": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "description": "the driver states its version or its semantic version",
+          "anyOf": [
+            {
+              "required": [
+                "version"
+              ]
+            },
+            {
+              "required": [
+                "semanticVersion"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "descriptor": {
+      "description": "one rule that the tool can emit",
+      "type": "object",
+      "required": [
+        "id",
+        "shortDescription",
+        "defaultConfiguration"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/rule-id"
+        },
+        "shortDescription": {
+          "$ref": "#/$defs/message"
+        },
+        "defaultConfiguration": {
+          "type": "object",
+          "required": [
+            "level"
+          ],
+          "properties": {
+            "level": {
+              "$ref": "#/$defs/level"
+            }
+          }
+        }
+      }
+    },
+    "invocation": {
+      "description": "the invocation of the run: a failed one holds a notification of level error, a successful one holds none",
+      "type": "object",
+      "required": [
+        "executionSuccessful"
+      ],
+      "properties": {
+        "executionSuccessful": {
+          "type": "boolean"
+        },
+        "toolExecutionNotifications": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/notification"
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "executionSuccessful": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "toolExecutionNotifications"
+        ],
+        "properties": {
+          "toolExecutionNotifications": {
+            "contains": {
+              "$ref": "#/$defs/error-notification"
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "toolExecutionNotifications": {
+            "description": "a successful invocation holds no notification of level error",
+            "not": {
+              "contains": {
+                "$ref": "#/$defs/error-notification"
+              }
+            }
+          }
+        }
+      }
+    },
+    "notification": {
+      "type": "object",
+      "required": [
+        "message"
+      ],
+      "properties": {
+        "level": {
+          "enum": [
+            "none",
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "message": {
+          "$ref": "#/$defs/message"
+        }
+      }
+    },
+    "error-notification": {
+      "type": "object",
+      "required": [
+        "level"
+      ],
+      "properties": {
+        "level": {
+          "const": "error"
+        }
+      }
+    },
+    "result": {
+      "description": "one finding, located at one resource and one locus",
+      "type": "object",
+      "required": [
+        "ruleId",
+        "level",
+        "message",
+        "locations"
+      ],
+      "properties": {
+        "ruleId": {
+          "$ref": "#/$defs/rule-id"
+        },
+        "level": {
+          "$ref": "#/$defs/level"
+        },
+        "message": {
+          "$ref": "#/$defs/message"
+        },
+        "locations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/location"
+          }
+        },
+        "partialFingerprints": {
+          "description": "the discriminator only, written when it is non-empty",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "discriminator/v1": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "properties": {
+          "description": "the payload of the tool, each name opening on a tool name and /",
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9-]*/"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "description": "kind is absent from version 1",
+          "not": {
+            "required": [
+              "kind"
+            ]
+          }
+        },
+        {
+          "description": "baselineState is absent from version 1",
+          "not": {
+            "required": [
+              "baselineState"
+            ]
+          }
+        },
+        {
+          "description": "the gate alone writes fingerprints",
+          "not": {
+            "required": [
+              "fingerprints"
+            ]
+          }
+        },
+        {
+          "description": "the gate alone writes suppressions",
+          "not": {
+            "required": [
+              "suppressions"
+            ]
+          }
+        }
+      ]
+    },
+    "location": {
+      "type": "object",
+      "required": [
+        "logicalLocations"
+      ],
+      "properties": {
+        "logicalLocations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/logical-location"
+          }
+        },
+        "physicalLocation": {
+          "$ref": "#/$defs/physical-location"
+        }
+      },
+      "allOf": [
+        {
+          "description": "a path resource has a physical location",
+          "if": {
+            "$ref": "#/$defs/names-a-path"
+          },
+          "then": {
+            "required": [
+              "physicalLocation"
+            ]
+          }
+        },
+        {
+          "description": "a folder has no region",
+          "if": {
+            "$ref": "#/$defs/names-a-folder"
+          },
+          "then": {
+            "properties": {
+              "physicalLocation": {
+                "description": "a folder has no region",
+                "not": {
+                  "required": [
+                    "region"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "names-a-path": {
+      "required": [
+        "logicalLocations"
+      ],
+      "properties": {
+        "logicalLocations": {
+          "items": {
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^path:"
+              }
+            }
+          }
+        }
+      }
+    },
+    "names-a-folder": {
+      "required": [
+        "logicalLocations"
+      ],
+      "properties": {
+        "logicalLocations": {
+          "items": {
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^path:[^#]*/(?:#|$)"
+              }
+            }
+          }
+        }
+      }
+    },
+    "logical-location": {
+      "description": "one top-level logical location, whose name joins the resource and the locus",
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/location-name"
+        },
+        "fullyQualifiedName": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "description": "a logical location of the profile is top-level",
+          "not": {
+            "required": [
+              "parentIndex"
+            ]
+          }
+        }
+      ]
+    },
+    "location-name": {
+      "description": "<resource> or <resource>#<locus>: the resource id:<identifier> or path:<path>, with % and # written %25 and %23; the locus a JSON Pointer or a typed locus",
+      "type": "string",
+      "pattern": "^(?:id:(?:[^%#]|%25|%23)+|path:(?:\\./|(?!\\.\\.?(?:/|#|$))(?:[^%#/]|%25|%23)+(?:/(?!\\.\\.?(?:/|#|$))(?:[^%#/]|%25|%23)+)*/?))(?:#(?:(?:/(?:[^/~]|~[01])*)+|(?:link|task|slot|term|symbol):[\\s\\S]+))?$"
+    },
+    "physical-location": {
+      "type": "object",
+      "required": [
+        "artifactLocation"
+      ],
+      "properties": {
+        "artifactLocation": {
+          "type": "object",
+          "required": [
+            "uri",
+            "uriBaseId"
+          ],
+          "properties": {
+            "uri": {
+              "description": "the repository-relative path, percent-encoded, which opens on neither a scheme nor /",
+              "type": "string",
+              "minLength": 1,
+              "not": {
+                "pattern": "^(?:[A-Za-z][A-Za-z0-9+.-]*:|/)"
+              }
+            },
+            "uriBaseId": {
+              "const": "SRCROOT"
+            }
+          }
+        },
+        "region": {
+          "type": "object",
+          "properties": {
+            "startLine": {
+              "$ref": "#/$defs/position"
+            },
+            "startColumn": {
+              "$ref": "#/$defs/position"
+            },
+            "endLine": {
+              "$ref": "#/$defs/position"
+            },
+            "endColumn": {
+              "$ref": "#/$defs/position"
+            }
+          }
+        }
+      }
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "rule-id": {
+      "description": "lowercase components separated by /",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*(?:/[a-z0-9][a-z0-9._-]*)*$"
+    },
+    "level": {
+      "enum": [
+        "error",
+        "warning",
+        "note"
+      ]
+    },
+    "message": {
+      "type": "object",
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

@@ -34,3 +34,6 @@ htmlcov/
 
 ## Documentation Build
 docs/_build/
+
+# State of Kleisis
+.kleisis/

@@ -10,7 +10,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "links/broken",
+                  "shortDescription": {
+                    "text": "the rule links/broken"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -60,7 +71,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "links/broken",
+                  "shortDescription": {
+                    "text": "the rule links/broken"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -110,7 +132,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "links/broken",
+                  "shortDescription": {
+                    "text": "the rule links/broken"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",
@@ -174,7 +207,8 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": []
             }
           },
           "columnKind": "unicodeCodePoints"
@@ -193,7 +227,18 @@
           "tool": {
             "driver": {
               "name": "geonexus",
-              "version": "0.0.0"
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "links/broken",
+                  "shortDescription": {
+                    "text": "the rule links/broken"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
             }
           },
           "columnKind": "unicodeCodePoints",

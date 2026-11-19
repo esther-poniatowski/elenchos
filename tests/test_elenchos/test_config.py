@@ -20,6 +20,7 @@ from elenchos.sarif import check_log
 from elenchos.suppressions import parse_suppressions, write_suppressions
 
 SPECS = Path(__file__).parents[2] / "specs"
+SCHEMAS = Path(__file__).parents[2] / "src" / "elenchos" / "schemas"
 ROOT = Path("/consumer")
 CONFIG_PATH = ROOT / "config" / "tools" / "elenchos.toml"
 
@@ -161,8 +162,13 @@ def test_invalid_configuration_is_rejected(case: str) -> None:
             d["checks"]["terms"].update(log="build/elenchos/links.sarif"),
         ),
     ],
-    ids=["suppressions-outside", "shared-log", "output-is-a-log", "default-output-is-a-default-log",
-         "log-is-a-default-log"],
+    ids=[
+        "suppressions-outside",
+        "shared-log",
+        "output-is-a-log",
+        "default-output-is-a-default-log",
+        "log-is-a-default-log",
+    ],
 )
 def test_path_rules_beyond_the_schema_are_rejected(edit: Callable[[dict[str, Any]], None]) -> None:
     """The loader rejects the path rules that a JSON Schema cannot state."""
@@ -279,7 +285,7 @@ def test_repeated_identity_is_rejected() -> None:
 def schema_accepts(name: str, document: dict[str, Any]) -> bool:
     """Whether the published JSON Schema `name` accepts a document."""
     jsonschema = pytest.importorskip("jsonschema")
-    schema = json.loads((SPECS / "schemas" / name).read_text())
+    schema = json.loads((SCHEMAS / name).read_text())
     return bool(jsonschema.Draft202012Validator(schema).is_valid(document))
 
 

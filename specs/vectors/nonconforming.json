@@ -1,0 +1,2128 @@
+[
+  {
+    "case": "conforming",
+    "description": "the base of every other vector, which conforms",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": null
+  },
+  {
+    "case": "schema-uri",
+    "description": "the log names another schema than that of errata 01",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://example.org/sarif.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/$schema"
+  },
+  {
+    "case": "results-null",
+    "description": "a run writes null results",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": null
+        }
+      ]
+    },
+    "pointer": "/runs/0/results"
+  },
+  {
+    "case": "column-kind-absent",
+    "description": "a run with results states no column kind",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0"
+  },
+  {
+    "case": "rules-absent",
+    "description": "the driver lists no rules",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0"
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/tool/driver"
+  },
+  {
+    "case": "version-absent",
+    "description": "the driver states neither version nor semanticVersion",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/tool/driver"
+  },
+  {
+    "case": "gate-driver",
+    "description": "a producer names its driver elenchos",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "elenchos",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/tool/driver/name"
+  },
+  {
+    "case": "driver-final-newline",
+    "description": "the driver name ends with a newline, which $ of ECMA-262 does not match",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe\n",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/tool/driver/name"
+  },
+  {
+    "case": "descriptor-without-level",
+    "description": "a rule of the driver has no default level",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {}
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/tool/driver/rules/0/defaultConfiguration"
+  },
+  {
+    "case": "two-invocations",
+    "description": "a run holds two invocations",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "invocations": [
+            {
+              "executionSuccessful": true
+            },
+            {
+              "executionSuccessful": true
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/invocations"
+  },
+  {
+    "case": "failure-without-error",
+    "description": "a failed invocation holds no notification of level error",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "invocations": [
+            {
+              "executionSuccessful": false
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/invocations/0"
+  },
+  {
+    "case": "success-with-error",
+    "description": "a successful invocation holds a notification of level error",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "invocations": [
+            {
+              "executionSuccessful": true,
+              "toolExecutionNotifications": [
+                {
+                  "level": "error",
+                  "message": {
+                    "text": "stopped"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/invocations/0/toolExecutionNotifications"
+  },
+  {
+    "case": "notification-without-message",
+    "description": "a notification of the invocation holds no message",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "invocations": [
+            {
+              "executionSuccessful": false,
+              "toolExecutionNotifications": [
+                {
+                  "level": "error"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/invocations/0/toolExecutionNotifications/0"
+  },
+  {
+    "case": "rule-id-uppercase",
+    "description": "a ruleId holds an uppercase letter",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "References/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/ruleId"
+  },
+  {
+    "case": "level-none",
+    "description": "a result has the level none",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "none",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/level"
+  },
+  {
+    "case": "message-empty",
+    "description": "a result has an empty message",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": ""
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/message/text"
+  },
+  {
+    "case": "kind-written",
+    "description": "a result writes kind, absent from version 1",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ],
+              "kind": "fail"
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0"
+  },
+  {
+    "case": "baseline-state-written",
+    "description": "a result writes baselineState, absent from version 1",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ],
+              "baselineState": "new"
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0"
+  },
+  {
+    "case": "fingerprints-written",
+    "description": "a result writes fingerprints, which the gate alone writes",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ],
+              "fingerprints": {
+                "other/v1": "x"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0"
+  },
+  {
+    "case": "foreign-partial-fingerprint",
+    "description": "a result writes a partial fingerprint other than the discriminator",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ],
+              "partialFingerprints": {
+                "other/v1": "x"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/partialFingerprints"
+  },
+  {
+    "case": "empty-discriminator",
+    "description": "a result writes an empty discriminator",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ],
+              "partialFingerprints": {
+                "discriminator/v1": ""
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/partialFingerprints/discriminator~1v1"
+  },
+  {
+    "case": "property-without-tool",
+    "description": "a property of a result opens on no tool name",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ],
+              "properties": {
+                "layer": "x"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/properties"
+  },
+  {
+    "case": "property-of-another-tool",
+    "description": "a property of a result opens on another tool than the driver",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ],
+              "properties": {
+                "hermeneia/layer": "x"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/properties"
+  },
+  {
+    "case": "undeclared-rule",
+    "description": "a ruleId names no rule of the driver",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/stale",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/ruleId"
+  },
+  {
+    "case": "physical-location-absent",
+    "description": "a path resource has no physical location",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/locations/0"
+  },
+  {
+    "case": "folder-with-region",
+    "description": "a folder has a region",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/locations/0/physicalLocation"
+  },
+  {
+    "case": "region-line-zero",
+    "description": "a region starts at line 0",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 0,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/locations/0/physicalLocation/region/startLine"
+  },
+  {
+    "case": "absolute-uri",
+    "description": "the URI of the artifact is absolute",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "/docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/locations/0/physicalLocation/artifactLocation/uri"
+  },
+  {
+    "case": "uri-base-absent",
+    "description": "the URI of the artifact has no uriBaseId",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/locations/0/physicalLocation/artifactLocation"
+  },
+  {
+    "case": "uri-of-another-path",
+    "description": "the URI of the artifact encodes another path than the resource",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/b.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/locations/0/physicalLocation/artifactLocation/uri"
+  },
+  {
+    "case": "malformed-uri-escape",
+    "description": "the URI of the artifact holds a malformed percent escape",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a%zz.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a%25zz.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/locations/0/physicalLocation/artifactLocation/uri"
+  },
+  {
+    "case": "nested-logical-location",
+    "description": "the logical location is not top-level",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md",
+                      "parentIndex": 0
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/locations/0/logicalLocations/0"
+  },
+  {
+    "case": "qualified-name-differs",
+    "description": "fullyQualifiedName differs from name",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#link:b.md",
+                      "fullyQualifiedName": "path:docs/b.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/locations/0/logicalLocations/0/fullyQualifiedName"
+  },
+  {
+    "case": "unknown-locus-type",
+    "description": "the locus has a type outside the closed list",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/a.md#line:3"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/locations/0/logicalLocations/0/name"
+  },
+  {
+    "case": "dot-segment",
+    "description": "the path of the resource holds a segment .",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/./a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "path:docs/./a.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/locations/0/logicalLocations/0/name"
+  },
+  {
+    "case": "resource-without-prefix",
+    "description": "the resource opens on neither id: nor path:",
+    "log": {
+      "version": "2.1.0",
+      "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "anagraphe",
+              "version": "0.0.0",
+              "rules": [
+                {
+                  "id": "references/broken",
+                  "shortDescription": {
+                    "text": "a reference names no file"
+                  },
+                  "defaultConfiguration": {
+                    "level": "error"
+                  }
+                }
+              ]
+            }
+          },
+          "columnKind": "unicodeCodePoints",
+          "results": [
+            {
+              "ruleId": "references/broken",
+              "level": "error",
+              "message": {
+                "text": "finding"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "docs/a.md",
+                      "uriBaseId": "SRCROOT"
+                    },
+                    "region": {
+                      "startLine": 12,
+                      "startColumn": 3
+                    }
+                  },
+                  "logicalLocations": [
+                    {
+                      "name": "docs/a.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "pointer": "/runs/0/results/0/locations/0/logicalLocations/0/name"
+  }
+]

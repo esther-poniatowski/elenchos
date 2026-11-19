@@ -1,0 +1,2019 @@
+[
+  {
+    "case": "whole-document",
+    "description": "the empty locus names the whole document",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [],
+    "locus": "",
+    "resolution": {
+      "path": [],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "property",
+    "description": "a token under an object names a property",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "title"
+    ],
+    "locus": "/title",
+    "resolution": {
+      "path": [
+        "title"
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "escaped-tokens",
+    "description": "~1 and ~0 decode to / and ~",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "a/b",
+      "c~d"
+    ],
+    "locus": "/a~1b/c~0d",
+    "resolution": {
+      "path": [
+        "a/b",
+        "c~d"
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "equals-in-property",
+    "description": "under an object, a token holding = names a property",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "a=b"
+    ],
+    "locus": "/a=b",
+    "resolution": {
+      "path": [
+        "a=b"
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "keyed-entry",
+    "description": "an entry of a keyed list is named by its key",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "variables",
+      1,
+      "signature",
+      1
+    ],
+    "locus": "/variables/symbol=u/signature/1",
+    "resolution": {
+      "path": [
+        "variables",
+        1,
+        "signature",
+        1
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "keyed-entry-moved",
+    "description": "the keyed locus names the entry wherever it lies",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "x=y"
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "variables",
+      2,
+      "signature",
+      1
+    ],
+    "locus": "/variables/symbol=u/signature/1",
+    "resolution": {
+      "path": [
+        "variables",
+        2,
+        "signature",
+        1
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "index-token",
+    "description": "an index still names an entry of a keyed list",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "locus": "/variables/1/signature/0",
+    "resolution": {
+      "path": [
+        "variables",
+        1,
+        "signature",
+        0
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "escaped-key-value",
+    "description": "the key and the value form one token, escaped as a whole",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "variables",
+      2
+    ],
+    "locus": "/variables/symbol=a~1b~0c",
+    "resolution": {
+      "path": [
+        "variables",
+        2
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "equals-in-value",
+    "description": "a keyed token splits at its first =",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "variables",
+      3
+    ],
+    "locus": "/variables/symbol=x=y",
+    "resolution": {
+      "path": [
+        "variables",
+        3
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "missing-field",
+    "description": "a field absent from an entry stays in the locus",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "variables",
+      1,
+      "title"
+    ],
+    "locus": "/variables/symbol=u/title",
+    "resolution": {
+      "path": [
+        "variables",
+        1
+      ],
+      "unresolved": [
+        "title"
+      ]
+    }
+  },
+  {
+    "case": "shared-key-value",
+    "description": "an entry whose key value another entry holds keeps its index",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "laws",
+      0
+    ],
+    "locus": "/laws/0",
+    "resolution": {
+      "path": [
+        "laws",
+        0
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "ambiguous-keyed-token",
+    "description": "a keyed token held by two entries names none",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "locus": "/laws/name=n1",
+    "resolution": {
+      "path": [
+        "laws"
+      ],
+      "unresolved": [
+        "name=n1"
+      ]
+    }
+  },
+  {
+    "case": "second-property",
+    "description": "an entry without the first property is keyed by the next",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "laws",
+      2
+    ],
+    "locus": "/laws/of=q",
+    "resolution": {
+      "path": [
+        "laws",
+        2
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "empty-key-value",
+    "description": "an entry whose key value is empty keeps its index",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "laws",
+      3
+    ],
+    "locus": "/laws/3",
+    "resolution": {
+      "path": [
+        "laws",
+        3
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "digit-key-value",
+    "description": "a key value of digits forms a keyed token, not an index",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "steps",
+      0,
+      "parts",
+      0
+    ],
+    "locus": "/steps/0/parts/id=3",
+    "resolution": {
+      "path": [
+        "steps",
+        0,
+        "parts",
+        0
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "index-out-of-range",
+    "description": "an index beyond the list names no entry",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "locus": "/steps/0/parts/3",
+    "resolution": {
+      "path": [
+        "steps",
+        0,
+        "parts"
+      ],
+      "unresolved": [
+        "3"
+      ]
+    }
+  },
+  {
+    "case": "leading-zero",
+    "description": "a token with a leading zero is no index",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "locus": "/variables/01",
+    "resolution": {
+      "path": [
+        "variables"
+      ],
+      "unresolved": [
+        "01"
+      ]
+    }
+  },
+  {
+    "case": "token-without-equals",
+    "description": "under an array, a token neither index nor keyed names nothing",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "locus": "/variables/u",
+    "resolution": {
+      "path": [
+        "variables"
+      ],
+      "unresolved": [
+        "u"
+      ]
+    }
+  },
+  {
+    "case": "unknown-key-value",
+    "description": "a keyed token that no entry holds names nothing",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "locus": "/variables/symbol=w",
+    "resolution": {
+      "path": [
+        "variables"
+      ],
+      "unresolved": [
+        "symbol=w"
+      ]
+    }
+  },
+  {
+    "case": "unkeyed-list",
+    "description": "a list whose schema declares no key keeps indexes",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "x-entry-key": "symbol"
+        },
+        "laws": {
+          "type": "array",
+          "x-entry-key": [
+            "name",
+            "of"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "$defs": {
+        "step": {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "x-entry-key": "id"
+            }
+          }
+        }
+      }
+    },
+    "path": [
+      "other",
+      0
+    ],
+    "locus": "/other/0",
+    "resolution": {
+      "path": [
+        "other",
+        0
+      ],
+      "unresolved": []
+    }
+  },
+  {
+    "case": "typed-locus",
+    "description": "a typed locus names no node of a document",
+    "document": {
+      "title": "T",
+      "a/b": {
+        "c~d": 1
+      },
+      "a=b": 2,
+      "variables": [
+        {
+          "symbol": "v",
+          "signature": [
+            "x"
+          ]
+        },
+        {
+          "symbol": "u",
+          "signature": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "symbol": "a/b~c"
+        },
+        {
+          "symbol": "x=y"
+        }
+      ],
+      "laws": [
+        {
+          "name": "n1"
+        },
+        {
+          "name": "n1"
+        },
+        {
+          "of": "q"
+        },
+        {
+          "name": ""
+        }
+      ],
+      "steps": [
+        {
+          "parts": [
+            {
+              "id": "3"
+            },
+            {
+              "id": "p"
+            }
+          ]
+        }
+      ],
+      "other": [
+        {
+          "symbol": "s"
+        }
+      ]
+    },
+    "locus": "link:b.md",
+    "resolution": null
+  }
+]

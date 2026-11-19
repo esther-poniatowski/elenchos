@@ -1,0 +1,13 @@
+# Configuration of Kleisis for the schemas of Elenchos, which the Python package ships.
+_schema: kleisis:configuration@1
+
+paths:
+  owned_schemas: src/elenchos/schemas
+  registry: specs/schema-registry.yml
+
+exports:
+  - elenchos:configuration@3
+  - elenchos:suppressions@1
+
+keywords:
+  x-entry-key: names the property, or the properties in order of preference, whose value keys each entry of a list in the locus of a finding
