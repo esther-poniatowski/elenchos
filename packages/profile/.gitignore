@@ -1,0 +1,4 @@
+node_modules/
+dist/
+# Generated from src/elenchos/schemas/findings-profile.schema.json by scripts/generate-schema.mjs.
+src/generated/

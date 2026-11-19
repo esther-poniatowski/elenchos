@@ -4,7 +4,8 @@
 # File: `.github/workflows/release.yml`
 #
 # Automates version bumping, distribution publishing, and GitHub release creation
-# based on conventional commit messages.
+# based on conventional commit messages, and attaches the tarball of the TypeScript implementation
+# of the findings profile, `packages/profile`.
 #
 # Trigger: Manual only (workflow_dispatch) for safety.
 #
@@ -62,6 +63,30 @@ jobs:
         # The version command creates the release; the publish command attaches the distributions
         # built by build_command, matched by dist_glob_patterns.
         run: semantic-release --config config/tools/releaserc.toml publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: packages/profile/package-lock.json
+
+      # npm installs no subdirectory of a Git repository, so the TypeScript implementation ships as
+      # a tarball attached to the release of its tag. The script prepack builds it at the version
+      # that the version command stamped in its package.json.
+      - name: Attach the TypeScript Profile
+        working-directory: packages/profile
+        run: |
+          tag="$(git tag --points-at HEAD | grep '^v' | head -n 1 || true)"
+          if [ "$(git rev-parse HEAD)" = "${{ steps.head.outputs.before }}" ] || [ -z "$tag" ]; then
+            echo "::notice title=Package skipped::no new release, so no tarball is attached."
+            exit 0
+          fi
+          npm ci
+          npm pack --silent --pack-destination "$RUNNER_TEMP"
+          gh release upload "$tag" "$RUNNER_TEMP"/elenchos-profile-*.tgz
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
