@@ -86,7 +86,8 @@ def consumer(
         ]
     (root / "specs").mkdir(parents=True, exist_ok=True)
     (root / "specs" / "suppressions.json").write_text(
-        json.dumps({"_schema": "elenchos:suppressions@1", "suppressions": entries}), encoding="utf-8"
+        json.dumps({"_schema": "elenchos:suppressions@1", "suppressions": entries}),
+        encoding="utf-8",
     )
     path = root / "config" / "tools" / "elenchos.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -369,7 +370,9 @@ def test_missing_log_without_placeholder_names_the_place_and_the_placeholder(
     tmp_path: Path,
 ) -> None:
     """A command that writes its log elsewhere than the default place is told how to name it."""
-    configuration = load_configuration(default_log_consumer(tmp_path, "logs/linker.sarif"), tmp_path)
+    configuration = load_configuration(
+        default_log_consumer(tmp_path, "logs/linker.sarif"), tmp_path
+    )
     failure = run_check(configuration.checks[0], configuration.root).failure
     assert failure is not None
     assert failure.rule_id == CHECK_MISSING_LOG
@@ -509,4 +512,3 @@ def test_configuration_with_the_old_key_exits_with_status_two(tmp_path: Path) ->
 
     assert outcome.exit_code == 2
     assert '_schema = "elenchos:configuration@3"' in outcome.output
-

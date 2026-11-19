@@ -249,12 +249,14 @@ def changed_paths(root: Path) -> list[str]:
         completed = subprocess.run(
             ["git", *arguments], cwd=root, capture_output=True, text=True, check=False
         )
-        if completed.returncode != 0:
+        if completed.returncode:
             raise OSError(f"git {arguments[0]} failed: {_last_line(completed.stderr)}")
         found.update(line for line in completed.stdout.splitlines() if line)
     return sorted(path for path in found if (root / path).is_file())
 
 
+# Each return is one outcome of a check that the gate configuration lists.
+# pylint: disable-next=too-many-return-statements
 def run_check(check: Check, root: Path, scope: Sequence[str] | None = None) -> CheckOutcome:
     """
     Run one check, on the paths of a scoped run when it accepts paths, and read its log.
@@ -377,6 +379,8 @@ def _covers(scope: frozenset[str], resource: str) -> bool:
     return "." in folders or any(path == item or path.startswith(item + "/") for item in folders)
 
 
+# The split weighs four conditions on each entry, each held in a local of its own.
+# pylint: disable-next=too-many-locals
 def _stale(
     suppressions: Mapping[str, Suppression],
     matched: set[str],
