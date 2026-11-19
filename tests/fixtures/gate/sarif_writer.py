@@ -31,16 +31,24 @@ def write(
     status: int = 0,
     invocation: dict[str, Any] | None = None,
     target: Path | None = None,
+    rules: list[str] | None = None,
 ) -> None:
     """Write a log of one run of `tool` to `target`, by default the path given as last argument,
     then exit.
 
     The run omits `results` when they are None, and holds `invocation` as its single invocation
-    when one is given."""
-    run: dict[str, Any] = {
-        "tool": {"driver": {"name": tool, "version": "1.0.0"}},
-        "columnKind": "unicodeCodePoints",
-    }
+    when one is given. The driver lists `rules` when they are given."""
+    driver: dict[str, Any] = {"name": tool, "version": "1.0.0"}
+    if rules is not None:
+        driver["rules"] = [
+            {
+                "id": rule,
+                "shortDescription": {"text": rule},
+                "defaultConfiguration": {"level": "error"},
+            }
+            for rule in rules
+        ]
+    run: dict[str, Any] = {"tool": {"driver": driver}, "columnKind": "unicodeCodePoints"}
     if invocation is not None:
         run["invocations"] = [invocation]
     if results is not None:

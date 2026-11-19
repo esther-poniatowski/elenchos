@@ -1,7 +1,8 @@
 """Fake check of tool `scoper`, of scope `paths`: one broken link in `a.md` and one in `b.md`.
 
 Given paths after the log path, it reports only the findings in those files, as a producer does
-in a scoped run. It exits 1 when it reports a finding, 0 otherwise.
+in a scoped run. Its driver lists the rule `links/broken`, unless the argument `--no-rules` follows
+the log path. It exits 1 when it reports a finding, 0 otherwise.
 """
 
 import sys
@@ -14,5 +15,7 @@ FINDINGS = {
     "b.md": result("links/broken", "error", "path:b.md#link:y.md", 4),
 }
 paths = sys.argv[2:]
+rules = None if "--no-rules" in paths else ["links/broken"]
+paths = [path for path in paths if path != "--no-rules"]
 selected = [finding for path, finding in FINDINGS.items() if not paths or path in paths]
-write("scoper", selected, status=1 if selected else 0, target=Path(sys.argv[1]))
+write("scoper", selected, status=1 if selected else 0, target=Path(sys.argv[1]), rules=rules)

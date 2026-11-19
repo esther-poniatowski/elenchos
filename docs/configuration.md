@@ -161,11 +161,11 @@ A suppression is **stale** when it matches no result of the merged log. The gate
 
 A stale entry blocks because it is a standing permission: if the finding it named comes back, the entry would tolerate it again without review. Blocking keeps the suppressions file equal to the debts that exist, so that the file only shrinks.
 
-Three cases leave the gate unable to tell whether the finding of an entry persists:
+The profile requires every driver to list its rules. Therefore, the runs that judge an unmatched entry are the runs of its tool whose driver lists the `ruleId` of the entry. When no run of the tool lists that rule, every run of the tool judges the entry. For example, when a tool runs in a scoped check and in a check of the whole root, only the scoped check judges the entries of its own rules. Three cases leave the gate unable to tell whether the finding of an entry persists:
 
-- the tool of the entry yielded an incomplete run, which may have stopped before reaching the finding;
+- a run judging the entry is incomplete, and may have stopped before reaching the finding;
 - the tool of the entry yielded no run while a check failed or was skipped, and that check may have been the check of the tool;
-- the tool of the entry ran only in scoped checks, and the scope covers no path of the resource of the entry: a `path:` resource equal to a path of the scope or below one of its folders. An `id:` resource is never covered.
+- the runs judging the entry were all scoped, and no scope covers the resource of the entry: a `path:` resource equal to a path of the scope or below one of its folders. An `id:` resource is never covered.
 
 An unmatched entry in either case is **unverified**: the gate counts it in its summary, and does not report it as stale. Every other unmatched entry is stale. The failed or incomplete check already yields a result of the gate, judged by the policy.
 

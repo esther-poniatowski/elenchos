@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   it, in each argument, by the absolute path of the log of the check. A command names its log once,
   instead of repeating the path of `log`.
 
+### Fixed
+
+- A scoped run no longer reports as stale the entry of a scoped check outside its scope when the
+  same tool also runs on the whole root. An unmatched entry is judged by the runs whose driver
+  lists its rule, and by every run of its tool only when none lists it.
+
 ### Changed
 
 - The schemas move from `specs/schemas/` to `src/elenchos/schemas/`, so that the Python package

@@ -379,48 +379,82 @@ def _covers(scope: frozenset[str], resource: str) -> bool:
     return "." in folders or any(path == item or path.startswith(item + "/") for item in folders)
 
 
-# The split weighs four conditions on each entry, each held in a local of its own.
-# pylint: disable-next=too-many-locals
+@dataclass(frozen=True)
+class _RunFacts:
+    """What one run of a producer tells about the suppressions of its tool."""
+
+    tool: str
+    #: The rules that the driver lists, None when it lists none.
+    rules: frozenset[str] | None
+    #: The paths of the scoped run that yielded it, None for a run on the whole root.
+    scope: frozenset[str] | None
+    complete: bool
+
+
+def _run_facts(outcomes: Sequence[CheckOutcome]) -> list[_RunFacts]:
+    """Return the facts of every run of the producers, with the scope of the check that ran it."""
+    facts: list[_RunFacts] = []
+    for outcome in outcomes:
+        for run in outcome.runs:
+            driver = run["tool"]["driver"]
+            listed = driver.get("rules")
+            rules = (
+                frozenset(
+                    rule["id"]
+                    for rule in listed
+                    if isinstance(rule, Mapping) and isinstance(rule.get("id"), str)
+                )
+                if isinstance(listed, list)
+                else None
+            )
+            facts.append(_RunFacts(driver["name"], rules, outcome.scope, run_complete(run)))
+    return facts
+
+
+def _unverified(identity: Identity, facts: Sequence[_RunFacts], all_ran: bool) -> bool:
+    """Whether the runs of a log leave an unmatched entry undecided.
+
+    The entry is judged by the runs of its tool whose driver lists its rule, since only these runs
+    evaluate it; when no run lists the rule, by every run of its tool.
+    """
+    own = [fact for fact in facts if fact.tool == identity.tool]
+    if not own:
+        return not all_ran
+    evaluating = [
+        fact for fact in own if fact.rules is not None and identity.rule_id in fact.rules
+    ] or own
+    if any(not fact.complete for fact in evaluating):
+        return True
+    if any(fact.scope is None for fact in evaluating):
+        return False
+    return not any(
+        fact.scope is not None and _covers(fact.scope, identity.resource) for fact in evaluating
+    )
+
+
 def _stale(
     suppressions: Mapping[str, Suppression],
     matched: set[str],
     outcomes: Sequence[CheckOutcome],
-    runs: Sequence[JsonObject],
 ) -> tuple[list[str], list[str]]:
     """
     Split the unmatched suppressions into stale and unverified entries.
 
-    An unmatched entry is unverified when its tool yielded an incomplete run, since the finding may
-    lie beyond the point where the run stopped. An entry whose tool yielded no run while a check
-    failed or was skipped is unverified, since that check may have held its finding. An entry
-    whose tool ran only on the paths of a scoped run is unverified unless the scope covers its
-    resource. Every other unmatched entry is stale.
+    An unmatched entry is judged by the runs that evaluate its rule: the runs of its tool whose
+    driver lists the rule, or every run of its tool when none lists it. The entry is unverified
+    when one of these runs is incomplete, since the finding may lie beyond the point where the run
+    stopped; when its tool yielded no run while a check failed or was skipped, since that check may
+    have held its finding; and when these runs were all scoped and no scope covers its resource.
+    Every other unmatched entry is stale.
     """
-    tools = {run["tool"]["driver"]["name"] for run in runs}
-    incomplete = {run["tool"]["driver"]["name"] for run in runs if not run_complete(run)}
-    whole = {
-        run["tool"]["driver"]["name"]
-        for outcome in outcomes
-        if outcome.scope is None
-        for run in outcome.runs
-    }
-    scopes: dict[str, frozenset[str]] = {}
-    for outcome in outcomes:
-        if outcome.scope is not None:
-            for run in outcome.runs:
-                name = run["tool"]["driver"]["name"]
-                scopes[name] = scopes.get(name, frozenset()) | outcome.scope
+    facts = _run_facts(outcomes)
     all_ran = all(outcome.failure is None and not outcome.skipped for outcome in outcomes)
     stale: list[str] = []
     unverified: list[str] = []
     for text in suppressions:
         if text in matched:
             continue
-        identity = Identity.parse(text)
-        tool = identity.tool
-        if tool in incomplete or not (all_ran or tool in tools):
-            unverified.append(text)
-        elif tool in scopes and tool not in whole and not _covers(scopes[tool], identity.resource):
+        if _unverified(Identity.parse(text), facts, all_ran):
             unverified.append(text)
         else:
             stale.append(text)
@@ -548,7 +582,6 @@ def judge(
         suppressions,
         {finding.identity for finding in findings if finding.suppressed},
         outcomes,
-        runs,
     )
     gate_results = _gate_results(configuration, outcomes, stale)
     findings += [

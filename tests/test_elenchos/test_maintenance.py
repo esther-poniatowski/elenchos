@@ -128,6 +128,42 @@ def test_a_folder_in_the_scope_covers_the_files_below_it(tmp_path: Path) -> None
     assert report.stale == (GONE,)
 
 
+def two_checks(root: Path, entries: list[dict[str, Any]], rules: bool = True) -> Path:
+    """Write a consumer whose tool `scoper` runs in a scoped check of the rule `links/broken`, and
+    in a check of the whole root of the rule `headings/missing`. Without `rules`, the scoped check
+    lists no rule."""
+    path = consumer(root, entries)
+    text = path.read_text(encoding="utf-8")
+    if not rules:
+        text = text.replace('"logs/scoper.sarif"]', '"logs/scoper.sarif", "--no-rules"]')
+    path.write_text(
+        text + f"""
+[checks.headings]
+command = {command("whole_check.py", "logs/headings.sarif")}
+log = "logs/headings.sarif"
+""",
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_an_entry_is_judged_by_the_runs_that_evaluate_its_rule(tmp_path: Path) -> None:
+    """The tool also runs on the whole root, but only the scoped check evaluates the rule of the
+    entry, so the entry of a file outside the scope stays unverified. An entry of the rule that
+    the whole check evaluates is stale."""
+    missing = "scoper|headings/missing|path:b.md|/title"
+    report = gate(two_checks(tmp_path, [entry(IN_B), entry(missing)]), scope=["a.md"])
+    assert report.unverified == (IN_B,)
+    assert report.stale == (missing,)
+
+
+def test_a_driver_without_rules_is_judged_by_its_tool(tmp_path: Path) -> None:
+    """When no run of the tool lists the rule of an entry, every run of the tool judges it, so the
+    check of the whole root makes the entry stale."""
+    report = gate(two_checks(tmp_path, [entry(IN_B)], rules=False), scope=["a.md"])
+    assert report.stale == (IN_B,) and not report.unverified
+
+
 def test_a_scoped_run_without_paths_skips_the_check(tmp_path: Path) -> None:
     report = gate(consumer(tmp_path, [entry(IN_A)]), scope=[])
     assert report.skipped == ("scoper",)
