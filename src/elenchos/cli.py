@@ -9,6 +9,7 @@ info : Display diagnostic information.
 check : Run the checks declared by a consumer, write the merged log, and gate on its results.
 update : Run the checks, then rewrite the suppressions file: renamed identities, stale entries
     pruned, current findings accepted.
+validate : Validate each record against the schema that its binding names, as a check of its own.
 
 See Also
 --------
@@ -17,6 +18,7 @@ typer.Typer
 """
 
 import datetime
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -71,7 +73,7 @@ def render(report: Report, configuration: Configuration) -> list[str]:
         unverified suppressions, then the path of the log and the verdict.
     """
     lines: list[str] = []
-    skipped = {name for name in report.skipped}
+    skipped = set(report.skipped)
     for name in [check.name for check in configuration.checks] + [None]:
         if name in skipped:
             lines.append(f"{name}: skipped, since the scoped run holds no path")
@@ -226,8 +228,9 @@ def cli_check(
     raise typer.Exit(EXIT_BLOCKED if report.blocked else EXIT_PASS)
 
 
+# Typer takes one parameter per option of the command.
 @app.command("update")
-def cli_update(
+def cli_update(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
     root: Optional[Path] = ROOT_OPTION,
     config: Optional[Path] = CONFIG_OPTION,
     prune: bool = typer.Option(False, "--prune", help="Remove the stale entries."),
@@ -250,9 +253,9 @@ def cli_update(
     `--prune`, the stale entries are removed; an unverified entry is kept. With `--accept`, every
     unsuppressed result of a producer receives an entry dated today, appended in the order of the
     log; the results of the gate are never accepted. `--only` restricts the accepted results to the
-    named checks, so that each check receives its own justification. The exit status is 0 once the file is
-    written, and 2 when an input is invalid, the configuration declares no suppressions file, or
-    a file cannot be written.
+    named checks, so that each check receives its own justification. The exit status is 0 once the
+    file is written, and 2 when an input is invalid, the configuration declares no suppressions
+    file, or a file cannot be written.
     """
     configuration, report = _gate(root, config, changed, paths)
     if configuration.suppressions is None:
@@ -288,6 +291,87 @@ def cli_update(
         f"{renamed} renamed, {len(report.entries) - len(kept)} pruned, {len(added)} added"
     )
     raise typer.Exit(EXIT_PASS)
+
+
+def _relative_scope(root: Path, paths: list[Path] | None) -> list[str] | None:
+    """Return the repository-relative form of the paths of a scoped run, None without paths.
+
+    Raises
+    ------
+    ConfigurationError
+        If a path lies outside the root.
+    """
+    if not paths:
+        return None
+    scope = []
+    for path in paths:
+        full = path.resolve()
+        if not full.is_relative_to(root):
+            raise ConfigurationError(f"{path} lies outside the root {root}")
+        scope.append(full.relative_to(root).as_posix() or ".")
+    return scope
+
+
+def _emit(report: str, output: Path | None) -> None:
+    """Write a report to its file, or to the standard output; exit 2 when the file cannot be
+    written."""
+    try:
+        if output is None:
+            typer.echo(report, nl=False)
+        else:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(report, encoding="utf-8")
+    except OSError as error:
+        typer.echo(f"elenchos: cannot write {output}: {error}", err=True)
+        raise typer.Exit(EXIT_ERROR) from error
+
+
+@app.command("validate")
+def cli_validate(
+    root: Optional[Path] = ROOT_OPTION,
+    output_format: str = typer.Option(
+        "text", "--format", help="Report format: `text`, or `sarif` for a findings log."
+    ),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="File of the report; standard output by default."
+    ),
+    paths: Optional[list[Path]] = PATHS_ARGUMENT,
+) -> None:
+    """
+    Validate each record against the schema that its binding names.
+
+    The records, their binding key and their schema registry are those that the configuration of
+    Anagraphe declares. Paths restrict the report to the records below them. The exit status is 0
+    when no record breaks its schema, 1 when one does, and 2 when the check cannot run; with
+    `--format sarif`, the log then holds a failed run that states why.
+    """
+    try:
+        # The check needs the extra `validate`, which the gate alone does not.
+        # pylint: disable-next=import-outside-toplevel
+        from .validate import sarif_log, text_lines, validate_repository
+    except ImportError as error:
+        typer.echo(f"elenchos: validate needs the extra elenchos[validate]: {error}", err=True)
+        raise typer.Exit(EXIT_ERROR) from error
+    if output_format not in ("text", "sarif"):
+        typer.echo(f"elenchos: --format takes text or sarif, not {output_format}", err=True)
+        raise typer.Exit(EXIT_ERROR)
+    try:
+        resolved = _root(root)
+        scope = _relative_scope(resolved, paths)
+    except ConfigurationError as error:
+        typer.echo(f"elenchos: {error}", err=True)
+        raise typer.Exit(EXIT_ERROR) from error
+    outcome = validate_repository(resolved, scope)
+    if output_format == "sarif":
+        report = json.dumps(sarif_log(outcome), indent=2, ensure_ascii=False) + "\n"
+    else:
+        report = "\n".join(text_lines(outcome)) + "\n"
+    _emit(report, output)
+    if outcome.stopped is not None:
+        if output is not None or output_format == "sarif":
+            typer.echo(f"elenchos validate: {outcome.stopped}", err=True)
+        raise typer.Exit(EXIT_ERROR)
+    raise typer.Exit(EXIT_BLOCKED if outcome.findings else EXIT_PASS)
 
 
 @app.callback()
