@@ -23,7 +23,15 @@ Two limitations are observed when each checker reports and tolerates findings on
 
 ### Status
 
-Pre-alpha. The package provides the identity builder of the profile and the runner of the gate. The identity builder builds the canonical identity of a finding from its components, numbers identical occurrences, and parses an identity back. The runner executes the checks declared by a consumer, merges their logs into one SARIF log, applies the suppressions of the consumer, and exits non-zero on an unsuppressed blocking result. The runner can also scope a run to the changed files, and apply declared renames of rules and resources to stored suppressions. Its command `update` prunes the stale entries of the suppressions file, or accepts the current findings. Accepting the findings that a legacy count baseline tolerates converts that baseline.
+Pre-alpha. The package provides the profile, the identity builder of the profile, the runner of the gate and a check of records. The identity builder builds the canonical identity of a finding from its components, numbers identical occurrences, and parses an identity back. The runner executes the checks declared by a consumer, merges their logs into one SARIF log, applies the suppressions of the consumer, and exits non-zero on an unsuppressed blocking result. The runner can also scope a run to the changed files, and apply declared renames of rules and resources to stored suppressions. Its command `update` prunes the stale entries of the suppressions file, or accepts the current findings. Accepting the findings that a legacy count baseline tolerates converts that baseline.
+
+The profile is published in three forms. A producer pins one of them at a commit of this repository to check its log:
+
+- the schema `src/elenchos/schemas/findings-profile.schema.json`;
+- the Python module `elenchos.profile`;
+- the TypeScript package `@elenchos/profile`, in `packages/profile`.
+
+The command `validate` checks each record of the consumer against the schema named by its binding. The command needs the extra `elenchos[validate]`.
 
 ### Usage
 
@@ -34,9 +42,10 @@ elenchos check
 elenchos check --changed
 elenchos update --prune
 elenchos check --root PATH --config FILE
+elenchos validate --format sarif --output build/elenchos/records.sarif
 ```
 
-The exit status is 0 when no result blocks, 1 when an unsuppressed result blocks, and 2 when an input is invalid or the configuration file is absent. The [gate configuration](docs/configuration.md) specifies both files and the behaviour of the runner.
+The exit status is 0 when no result blocks, 1 when an unsuppressed result blocks, and 2 when an input is invalid or the configuration file is absent. The [gate configuration](docs/configuration.md) specifies both files and the behaviour of the runner, and the [record validation](docs/validation.md) specifies the command `validate`.
 
 ---
 

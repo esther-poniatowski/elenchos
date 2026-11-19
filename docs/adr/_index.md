@@ -16,3 +16,4 @@ Records the decisions that later work on `elenchos` must respect, so that a read
 ## Gate
 
 - [Runner and suppressions](runner-and-suppressions.md): decides how a consumer declares the inputs of the gate, and how the runner reaches its verdict
+- [Record validation](record-validation.md): decides the form of the check of records against their schemas, and the owners from which it reads its inputs

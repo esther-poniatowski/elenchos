@@ -3,7 +3,7 @@ tags:
   - decision
 status: accepted
 created: 2026-10-31
-revised: 2026-11-01
+revised: 2026-11-19
 index: "[Architecture decisions](docs/adr/_index.md)"
 aliases:
   - Findings profile decision
@@ -36,6 +36,10 @@ The [decision on tool roles](https://github.com/esther-poniatowski/geonexus/blob
 
 **Renames.** The consumer declares a map of rules (tool and `ruleId`) and a map of resources (`path:` to `id:`), which Elenchos applies to stored suppressions. ^renames
 
+**Publication.** Elenchos publishes the profile as the schema of a producer log, as the Python module `elenchos.profile` and as the TypeScript package `@elenchos/profile`, each tested on the vectors. A producer checks its log with one of them, read at a pinned commit, and implements no rule of the profile. ^publication
+
+**Keyed entry.** The schema of a list declares the key of its entries by `x-entry-key`, and the pointer of a locus names such an entry by the token `<property>=<value>`. The token extends the resolution of a pointer under an array, and leaves version 1 in place. ^keyed-entry
+
 ## Constraints that decide the form
 
 - **The elements of `logicalLocations` are alternatives.** SARIF lists in that array several expressions of one location (§3.28.4, NOTE). Therefore, a resource and its locus cannot occupy two elements.
@@ -43,7 +47,9 @@ The [decision on tool roles](https://github.com/esther-poniatowski/geonexus/blob
 - **A direct producer does not write `fingerprints`.** §3.27.16 leaves the property to converters and result management systems. Elenchos ingests the logs, so it writes the identity.
 - **`/` occurs inside the components.** A `ruleId` is a hierarchical string (§3.27.5), and paths and JSON Pointers contain `/`. Therefore, `/` cannot separate the components.
 - **A baseline is readable and states its reason.** The decision on stable identities requires each baseline entry to refer to the identity and to state its reason. Therefore, the identity is a readable string, and a suppression carries a justification.
-- **Producers import no package.** Each producer implements the profile from its text and its test vectors. Therefore, the identity is defined by a short algorithm over the log, not by a library.
+- **No tool implements a format owned by another tool.** On 2026-11-19, the researcher ruled that a consumer of a format uses the implementation of its owner, as the driver "Owner implementations" of the decision on tool roles states. Before, each producer implemented the profile from its text and its test vectors, and three producers kept validators of their own. A producer still writes its log without a package of Elenchos, so the identity stays a short algorithm over the log.
+- **JSON Schema relates no two members.** A schema cannot state that a `ruleId` names a rule of the driver, that a property opens on the driver name, that a `fullyQualifiedName` equals its `name`, or that a URI encodes a path. An interface in each language of a producer checks these four rules.
+- **An index moves with its neighbours.** A pointer through a list names an entry by its position. An insertion or a reordering changes that position, and with it the identity of every finding below the entry.
 - **An identity must not depend on other findings.** A suppression names one identity, so an identity that changes when another finding appears or disappears breaks its suppression without any change to its own finding.
 - **SARIF ties incompleteness to failure.** §3.20.21 forbids a consumer to assume that a *failed* run holds every result, and no property declares a run that succeeded but stopped early.
 - **Current baselines count identical occurrences.** 414 entries of the glossary baseline of Geonexus count several identical occurrences at one locus. A discriminator derived from the content cannot separate them.
@@ -95,6 +101,31 @@ The [decision on tool roles](https://github.com/esther-poniatowski/geonexus/blob
 | A discriminator written only when two results of one rule share a locus | Fewer discriminators | The identity of a finding changes when the other finding at its locus is repaired |
 | **A discriminator derived from the result alone** | Stable under any change to the other findings | Taken. Identical occurrences need the ordinal of the gate |
 
+**Publication of the profile.**
+
+| Option | Benefit | Reason it is not taken |
+| ------ | ------- | ---------------------- |
+| Each producer writes its own validator from the text and the vectors | No dependency of a producer on Elenchos | Each validator is a copy of the profile; three copies existed, and the researcher forbade them |
+| The schema alone | One file, read in every language | Leaves the four rules that relate two members unchecked |
+| The schema as a contract of the registry | Consumers select it through Kleisis | A log has no binding key `_schema` to name the contract |
+| **The schema, a resource under its `$id`, with an interface in Python and in TypeScript** | Every rule is checked by the owner, in the two languages of the producers and readers | Taken |
+
+**Key of a list entry.**
+
+| Option | Benefit | Reason it is not taken |
+| ------ | ------- | ---------------------- |
+| The index alone | Plain RFC 6901 | The identity of each finding below an entry changes when the list is reordered |
+| The pointer of the list, with the key and the rest of the path in the discriminator, as Gnomon writes | Survives reordering | A reader must guess which entry holds the key, and another producer gives the same node another locus |
+| A keyed token whose property each producer chooses | No declaration | Two producers may key one list differently |
+| **A keyed token `<property>=<value>`, the property declared by `x-entry-key` in the schema of the list** | Survives reordering; one locus per node; a reader needs no schema to resolve it | Taken |
+
+**Version of the keyed entry.**
+
+| Option | Benefit | Reason it is not taken |
+| ------ | ------- | ---------------------- |
+| Version 2 of the profile, with the key `elenchos/v2` | Marks the extension | Every suppressions file migrates, although every valid log stays valid and every identity stays unchanged |
+| **Version 1, changed in place** | No migration; the decision on tool roles admits a change in place of an unreleased format | Taken. After the first release, a new locus form takes a new version |
+
 **Rules of the driver.**
 
 | Option | Benefit | Reason it is not taken |
@@ -132,6 +163,8 @@ The [decision on tool roles](https://github.com/esther-poniatowski/geonexus/blob
 - **Decision on stable checker finding identities.** Acceptance of this record amends that decision in the same change. Elenchos, not a shared checker library, builds the identity. The fields of a finding are those of the profile, not `id`, `rule_id`, `resource` and `locus`. An ordinal numbers identical occurrences beside the discriminator, and the locus types `term` and `symbol` join the admitted loci. Its sentence "A checker reports two diagnostics that receive the same identifier" contradicts its own driver *Distinguishes instances*, and is rewritten.
 - **Decision on tool roles.** Its section "Findings" omits the locus types `term` and `symbol` and the `uriBaseId` of relative URIs. It also lists the rename maps under the `properties` bag, although they belong to the configuration of the consumer. These points are corrected when the present record is accepted.
 - **Producers.** Each producer that stays writes the profile; the [producer and baseline migration](../producer-migration.md) maps each current output.
+- **Validators of the producers.** Kleisis, Ekthesis and Anagraphe delete their own validators of the profile, and check their logs with `elenchos.profile`, pinned at a commit.
+- **Keyed lists.** Gnomon declares `x-entry-key` in the schemas of its keyed lists, and writes keyed tokens instead of moving the key into the discriminator; the identities of its findings in keyed lists change once. Ekphrasis resolves loci through `@elenchos/profile`.
 - **Baselines.** The current count baselines convert into suppressions through the ordinal, one identity per counted instance.
 - **Prose rules.** A locus for prose rules (Hermeneia, glossary occurrences) remains open. A new locus type, such as `section:`, takes a new version of the profile and of its key.
 - **Producers in place.** Ekthesis and Kleisis list every rule and derive their discriminators from each result alone. Ekthesis must give a finding on an absent field the region of the closest existing ancestor, where it now writes none. Kleisis must declare each run stopped at a first failure as an incomplete run.

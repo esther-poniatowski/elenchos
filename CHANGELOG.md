@@ -9,11 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The schema of a producer log, `findings-profile.schema.json`, published under its absolute `$id`
+  and listed as a resource of the registry of Elenchos. The schema holds every rule of sections 3
+  and 4 of the profile expressible in JSON Schema.
+- The module `elenchos.profile`, the Python interface of the profile:
+  - `violations` checks a log against the schema and the four rules relating two members of a log;
+  - `identities` returns the identities written by the gate;
+  - `resolve_locus` and `entry_keys` read and write loci.
+- The TypeScript package `@elenchos/profile`, in `packages/profile`, which checks a log, splits
+  location names and resolves loci. A release attaches its tarball.
+- The keyed entry of a list in the locus of a finding: the schema of a list declares the key of its
+  entries by `x-entry-key`, and the pointer writes the entry as `<property>=<value>`. Version 1 of
+  the profile takes it in place, since every valid log stays valid and every identity unchanged.
+- The vectors `nonconforming.json` and `loci.json`, and the vector `keyed-entry` of the identity
+  vectors. The identity and rejected vectors list the rules of their drivers, so that each vector
+  breaks exactly one rule.
+- The command `elenchos validate` validates each record against the schema named by its binding,
+  and writes its findings under the driver `elenchos-validate`. The command reads the records
+  through `anagraphe-read` and the registry through Kleisis, both in the new extra `validate`.
+- The configuration of Kleisis, `config/tools/kleisis.yml`, its registry `specs/schema-registry.yml`,
+  and `hodegos.yml`. The registry exports `elenchos:configuration@3` and `elenchos:suppressions@1`,
+  and declares the keyword `x-entry-key`.
+
 - The placeholder `{log}` in the command of a check: before running the command, Elenchos replaces
   it, in each argument, by the absolute path of the log of the check. A command names its log once,
   instead of repeating the path of `log`.
 
 ### Changed
+
+- The schemas move from `specs/schemas/` to `src/elenchos/schemas/`, so that the Python package
+  ships them; their `$id`s are unchanged.
+- The distribution requires `jsonschema` and `referencing`.
 
 - The key `output` and the key `log` of each check are optional. The merged log goes by default to
   `build/elenchos/gate.sarif`, and the log of a check to `build/elenchos/<name>.sarif`, below the

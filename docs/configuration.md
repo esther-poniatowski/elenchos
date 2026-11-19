@@ -27,7 +27,7 @@ elenchos check --root PATH --config FILE              # both named explicitly
 
 ## 1. Configuration
 
-The configuration is a TOML file, published as the JSON Schema [configuration.schema.json](../specs/schemas/configuration.schema.json). The commands of the example are illustrative: they assume producers that write the profile.
+The configuration is a TOML file, published as the JSON Schema [configuration.schema.json](../src/elenchos/schemas/configuration.schema.json). The commands of the example are illustrative: they assume producers that write the profile.
 
 ```toml
 _schema = "elenchos:configuration@3"
@@ -90,7 +90,7 @@ An empty list declares that no level blocks. A key of `policy.rules` holds the t
 
 ## 2. Suppressions file
 
-The suppressions file is a JSON file, published as the JSON Schema [suppressions.schema.json](../specs/schemas/suppressions.schema.json). The key `_schema`, first in the file, is `elenchos:suppressions@1`; this format holds identities of the profile key `elenchos/v1`. The file cannot be regenerated, since it holds justifications written by a person, so a file that still carries the former key `version` stops with status 2, and the message names the value to write.
+The suppressions file is a JSON file, published as the JSON Schema [suppressions.schema.json](../src/elenchos/schemas/suppressions.schema.json). The key `_schema`, first in the file, is `elenchos:suppressions@1`; this format holds identities of the profile key `elenchos/v1`. The file cannot be regenerated, since it holds justifications written by a person, so a file that still carries the former key `version` stops with status 2, and the message names the value to write.
 
 ```json
 {

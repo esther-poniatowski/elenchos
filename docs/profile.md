@@ -15,7 +15,7 @@ The profile has version 1, named by the key `elenchos/v1` of the identity.
 
 Two roles write a log:
 
-- a **producer** is a checker of a domain tool, a direct SARIF producer in the sense of the standard. It writes one run per invocation, and imports no package of Elenchos;
+- a **producer** is a checker of a domain tool, a direct SARIF producer in the sense of the standard. A producer writes one run per invocation, and its writer needs no package of Elenchos;
 - the **gate** is Elenchos. It runs the checks declared by the consumer ([gate configuration](configuration.md)), reads the logs of the producers, acts as a post-processor and as a result management system, and adds the identity and the suppressions of each result.
 
 The status column of each table takes four values:
@@ -25,7 +25,7 @@ The status column of each table takes four values:
 - *absent*: the object is never written in version 1;
 - *gate only*: the gate writes the object, and a producer never does.
 
-A producer conforms when its log satisfies sections 3 and 4, and when the test vectors of [section 6](#6-test-vectors) yield their expected identities from its output. The gate rejects a log that breaks a rule on which the identity or the verdict depends, as listed in [section 5.6](#56-rejected-input).
+A producer conforms when its log satisfies sections 3 and 4. A producer checks its log, in its tests, with the schema and the interfaces of [section 6](#6-schema-interfaces-and-test-vectors), and implements none of these rules itself. The gate rejects a log that breaks a rule on which the identity or the verdict depends, as listed in [section 5.6](#56-rejected-input).
 
 ## 2. Sources and marks
 
@@ -126,7 +126,7 @@ A producer never names its driver `elenchos`. The [gate configuration](configura
 | `ruleId` | required | the stable identifier of the rule within its tool: lowercase components matching `[a-z0-9][a-z0-9._-]*`, separated by `/` |
 | `kind` | absent | defaults to `"fail"` |
 | `level` | required | `"error"`, `"warning"` or `"note"` |
-| `message.text` | required | the explanation; excluded from the identity |
+| `message.text` | required | the explanation, non-empty; excluded from the identity |
 | `locations` | required | exactly one `location` |
 | `locations[0].logicalLocations` | required | exactly one `logicalLocation`, top-level, holding `name` and optionally `kind` |
 | `logicalLocations[0].name` | required | `<resource>` or `<resource>#<locus>` ([section 4.5](#45-logical-location-resource-and-locus)) |
@@ -211,6 +211,18 @@ The elements of `logicalLocations` are alternative expressions of *one* location
 - the empty locus, which denotes the whole resource. It is also the deterministic fallback when malformed content supplies no locus;
 - a JSON Pointer (RFC 6901), opening on `/`, for a key path in structured data; each `~` is followed by `0` or `1`. A field path converts to a pointer by the specification cited below. The pointer to the whole document, the empty string in RFC 6901, coincides with the empty locus;
 - a typed locus `<type>:<value>`, with a type from a closed list: `link:<target as written>`, `task:<id>`, `slot:<name>`, `term:<glossary id>`, `symbol:<notation id>`.
+
+**Keyed entry.** An index of a list changes when an entry is inserted, removed or moved before it, and so does the identity of every finding below that entry. The schema of a list therefore declares the key of its entries by the keyword `x-entry-key`, whose value is one property name, or a list of property names in order of preference. Elenchos owns the keyword, and declares it in its registry. In the pointer of a locus, an entry of such a list is written by a *keyed token* `<property>=<value>` instead of its index:
+
+- the property is the first one listed whose value in the entry is a non-empty string, held by no other entry of the list under that property;
+- the property and the value, joined by `=`, form one reference token, escaped as RFC 6901 states;
+- an entry that holds no such property keeps its index.
+
+For example, the item at index 1 of `signature`, in the entry of `variables` whose `symbol` is `u`, has the locus `/variables/symbol=u/signature/1` wherever that entry lies in the list. A producer writes the keyed token for each entry of a list whose schema declares `x-entry-key`, so that one node receives one locus from every producer. A list cannot be keyed by a property name holding `=`.
+
+A reader resolves a pointer token by token against the document. Under an object, a token names a property, as RFC 6901 states. Under an array, a token of decimal digits without leading zero names an index. Any other token splits at its first `=` into a property and a value, and names the single entry holding the value under the property. The resolution stops at the first token naming no node: an absent property, an index beyond the list, or a keyed token held by no entry or by two entries.
+
+A keyed token is a reference token of RFC 6901. Therefore, the form of the locus, the identity string and its parsing stay unchanged, and no locus written before the keyed token changes its meaning. Under RFC 6901 alone, such a token under an array names no node.
 
 **Field paths.** A field path, such as `relations[2].target`, names one node of a structured document by its keys and positions. The [field-path specification of Anagraphe](https://github.com/esther-poniatowski/anagraphe/blob/main/docs/specification/field-paths.md) fixes its syntax and its conversion to a JSON Pointer, as [ADR 0008 of Anagraphe](https://github.com/esther-poniatowski/anagraphe/blob/main/docs/adr/0008-field-paths.md) decides. The conformance cases of that specification hold the vectors of the conversion, among them `relations[2].target` to `/relations/2/target`, the key `a/b` to `/a~1b`, and the empty key to `/`.
 
@@ -351,14 +363,29 @@ The rules of the verdict are:
 
 The identity excludes `message`, `level`, line and column, `kind`, and any suggested repair, as the decision on stable checker finding identities requires and Appendix B recommends. The message and the region only order identical occurrences ([section 5.3](#53-string-and-ordinal)).
 
-## 6. Test vectors
+## 6. Schema, interfaces and test vectors
 
-The test vectors are published data files of the repository, read by its test suite and by every producer:
+A producer checks its log with the implementations that Elenchos publishes, read at a pinned commit of the repository of Elenchos. Three implementations exist:
 
-- [identity vectors](../specs/vectors/identity.json): each vector holds a SARIF log and the expected identity of each of its results, in the order of runs and results;
-- [rejected vectors](../specs/vectors/rejected.json): each vector holds a log that the gate must reject.
+- the schema of a producer log, [findings-profile.schema.json](../src/elenchos/schemas/findings-profile.schema.json), of absolute `$id` `https://github.com/esther-poniatowski/elenchos/specs/schemas/findings-profile.schema.json`. The schema holds every rule of sections 3 and 4 expressible in JSON Schema, and its patterns follow ECMA-262. A log carries no `_schema`, so the registry of Elenchos lists the schema as a resource under its `$id`, and as no contract;
+- the Python module `elenchos.profile`. Its function `violations` checks a log against the schema and against the four rules listed below. Its function `identities` returns the identities written by the gate. Its functions `resolve_locus` and `entry_keys` read and write loci, keyed tokens included;
+- the TypeScript package `@elenchos/profile`, in `packages/profile`. Its function `violations` checks a log against the same schema and the same four rules. Its functions `splitLocationName` and `resolveLocus` read the name and the locus of a finding. The package leaves identities to the Python module, since only consumers in Python build them.
 
-Each vector states its case in `case` and `description`. Non-ASCII and decomposed characters are written as JSON escapes (`́`), so that a reader sees which code points a vector holds. The expected values were computed by a reference script independent of the implementation of Elenchos, except those of the cases `missing-field`, `partial-run` and `failed-run`, which were computed by hand.
+Four rules relate two members of a log, and lie outside JSON Schema:
+
+- each `ruleId` names a rule of the driver;
+- each property of a result opens on the driver name and `/`;
+- a `fullyQualifiedName` equals the `name` of its logical location;
+- the URI of the artifact of a `path:` resource decodes to its path.
+
+The test vectors are published data files of the repository, read by the tests of the gate and of each implementation:
+
+- [identity vectors](../specs/vectors/identity.json): each vector holds a conforming log and the expected identity of each of its results, in the order of runs and results;
+- [rejected vectors](../specs/vectors/rejected.json): each vector holds a log rejected by the gate, which also breaks a rule of a producer;
+- [nonconforming vectors](../specs/vectors/nonconforming.json): each vector holds a log that breaks one rule of a producer, and the JSON Pointer of the node at which the rule fails. The first vector holds the conforming base log of every other vector;
+- [locus vectors](../specs/vectors/loci.json): each vector holds a document, a locus, and the node named by the locus, with the tokens left below it. When a vector also holds a schema and a path, it states the locus written by a producer for that path.
+
+Each vector states its case in `case` and `description`. Non-ASCII and decomposed characters are written as JSON escapes (`\u0301`), so that a reader sees which code points a vector holds. The expected identities were computed by a reference script independent of the implementation of Elenchos, except those of the cases `missing-field`, `partial-run`, `failed-run` and `keyed-entry`, which were computed by hand.
 
 ## 7. Unverified and open points
 
