@@ -25,13 +25,7 @@ from typing import Optional
 import typer
 
 from . import info, __version__
-from .config import (
-    ROOT_VARIABLE,
-    Configuration,
-    find_root,
-    load_configuration,
-    locate_configuration,
-)
+from .config import Configuration, discover_configuration, discover_root, load_configuration
 from .errors import ConfigurationError
 from .runner import Report, changed_paths, judge, run_check, write_log
 from .sarif import GATE_TOOL
@@ -108,18 +102,19 @@ CONFIG_OPTION = typer.Option(
     "--config",
     "-c",
     help=(
-        "Configuration file of the consumer, declaring its checks, policy and suppressions; "
-        "`config/tools/elenchos.toml` or `elenchos.toml` below the root by default."
+        "Configuration file of the consumer, declaring its checks, policy and suppressions, "
+        "relative to the current folder; by default elenchos.toml at the root, in .config/, or in "
+        "a folder that hodegos.yml declares."
     ),
 )
 ROOT_OPTION = typer.Option(
     None,
     "--root",
     "-r",
-    envvar=ROOT_VARIABLE,
     help=(
         "Root of the consumer, against which the paths of the configuration resolve; by default "
-        "the nearest ancestor of the current folder holding the configuration file."
+        "the folder of ELENCHOS_ROOT, else the nearest folder, from the current one upwards, "
+        "holding a configuration, else the current folder."
     ),
 )
 CHANGED_OPTION = typer.Option(
@@ -161,29 +156,13 @@ def _scope(
     return scope
 
 
-def _root(root: Path | None) -> Path:
-    """Return the root given by `--root` or `ELENCHOS_ROOT`, or the one found from the current
-    folder.
-
-    Raises
-    ------
-    ConfigurationError
-        If the given root is not a folder.
-    """
-    if root is None:
-        return find_root(Path.cwd())
-    if not root.is_dir():
-        raise ConfigurationError(f"{root}: the root is not a folder")
-    return root.resolve()
-
-
 def _gate(
     root: Path | None, config: Path | None, changed: bool, paths: list[Path] | None
 ) -> tuple[Configuration, Report]:
     """Load the inputs, run the checks, judge them and write the merged log; exit 2 on an error."""
     try:
-        resolved = _root(root)
-        configuration = load_configuration(locate_configuration(resolved, config), resolved)
+        resolved, path = discover_configuration(root, config)
+        configuration = load_configuration(path, resolved)
         entries = (
             {}
             if configuration.suppressions is None
@@ -356,7 +335,7 @@ def cli_validate(
         typer.echo(f"elenchos: --format takes text or sarif, not {output_format}", err=True)
         raise typer.Exit(EXIT_ERROR)
     try:
-        resolved = _root(root)
+        resolved = discover_root(root)
         scope = _relative_scope(resolved, paths)
     except ConfigurationError as error:
         typer.echo(f"elenchos: {error}", err=True)

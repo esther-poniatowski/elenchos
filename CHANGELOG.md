@@ -43,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Breaking:** Hodegos resolves the root of a command and locates `elenchos.toml`, as its
+  specification states. The file lies at the root, in its subfolder `.config/`, or in a folder
+  that the `hodegos.yml` of the root declares. `config/tools/elenchos.toml` is read only when
+  `hodegos.yml` lists `config/tools`. `discover_root` and `discover_configuration` replace
+  `find_root` and `locate_configuration`, and the constants `SETTINGS_PLACES` and `ROOT_VARIABLE`
+  are removed. The distribution requires `hodegos`. The command `validate` stops with status 2 when
+  two places of the root hold `elenchos.toml` or when `hodegos.yml` is invalid.
 - The schemas move from `specs/schemas/` to `src/elenchos/schemas/`, so that the Python package
   ships them; their `$id`s are unchanged.
 - The distribution requires `jsonschema` and `referencing`.
@@ -56,12 +63,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   unless an argument of a command holds the text `{log}`, which is now replaced; no configuration
   of the workspace holds it, and the format stays `elenchos:configuration@3`, unreleased.
 
-- The configuration file is found without `--config`: Elenchos reads `config/tools/elenchos.toml`
-  or `elenchos.toml` below the root, and stops with exit status 2 when both exist or neither does.
+- The configuration file is found without `--config`: Elenchos reads `elenchos.toml` at the one
+  place of the root that holds it, and stops with exit status 2 when two places hold it or none
+  does.
   `-c`, `--config` remains to name another file; an absent named file exits 2.
 - The root comes from the new option `-r`, `--root`, then from the environment variable
-  `ELENCHOS_ROOT`, then from the nearest ancestor of the current folder that holds the
-  configuration file, then from the current folder.
+  `ELENCHOS_ROOT`, then from the nearest folder, from the current one upwards, that holds the
+  configuration file at one of its places, then from the current folder.
 - The configuration format is version 3. Every path of the file resolves against the root, never
   against the folder of the file. Versions 1 and 2 are no longer read.
 - The configuration file and the suppressions file declare their format as their first key:

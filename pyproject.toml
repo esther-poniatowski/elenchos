@@ -39,6 +39,8 @@ dependencies = [
     "typer",
     "jsonschema>=4.18",
     "referencing",
+    # Hodegos resolves the root of a command and locates `elenchos.toml`.
+    "hodegos @ git+https://github.com/esther-poniatowski/hodegos.git@e61d0d97eaa80cc0cfdd90c3022c1e3916ef1ad9",
 ]
 
 [project.optional-dependencies]

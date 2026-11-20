@@ -35,7 +35,7 @@ The command `validate` checks each record of the consumer against the schema nam
 
 ### Usage
 
-A consumer declares its checks, its severity policy and its suppressions file in one TOML configuration, `config/tools/elenchos.toml` or `elenchos.toml` at its root. Elenchos finds the root from the current folder, or reads it from `--root` or the environment variable `ELENCHOS_ROOT`:
+A consumer declares its checks, its severity policy and its suppressions file in one TOML configuration, `elenchos.toml`, at its root, in its subfolder `.config/`, or in a folder that its `hodegos.yml` declares. [Hodegos](https://github.com/esther-poniatowski/hodegos/blob/main/docs/specification.md) finds the root from the current folder, or reads it from `--root` or the environment variable `ELENCHOS_ROOT`:
 
 ```sh
 elenchos check

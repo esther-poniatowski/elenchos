@@ -11,8 +11,8 @@ import pytest
 from elenchos.config import (
     DEFAULT_EXIT_CODES,
     Check,
-    find_root,
-    locate_configuration,
+    discover_configuration,
+    discover_root,
     parse_configuration,
 )
 from elenchos.errors import ConfigurationError, ProfileError
@@ -22,7 +22,9 @@ from elenchos.suppressions import parse_suppressions, write_suppressions
 SPECS = Path(__file__).parents[2] / "specs"
 SCHEMAS = Path(__file__).parents[2] / "src" / "elenchos" / "schemas"
 ROOT = Path("/consumer")
-CONFIG_PATH = ROOT / "config" / "tools" / "elenchos.toml"
+CONFIG_PATH = ROOT / "shared" / "elenchos.toml"
+DECLARATION = "_schema: hodegos:configuration@1\nfolders:\n  - shared\n"
+"""Declaration `hodegos.yml` of a consumer keeping its configuration in `shared/`."""
 
 VALID_CONFIGURATION: dict[str, Any] = {
     "_schema": "elenchos:configuration@3",
@@ -111,7 +113,7 @@ def test_valid_configuration_resolves_paths_against_the_root() -> None:
     assert configuration.output == root / "build" / "gate.sarif"
     assert configuration.checks[0].log == root / "logs" / "links.sarif"
     assert configuration.checks[0].exit_codes == DEFAULT_EXIT_CODES
-    assert configuration.relative(configuration.path) == "config/tools/elenchos.toml"
+    assert configuration.relative(configuration.path) == "shared/elenchos.toml"
 
 
 def test_output_and_logs_default_to_the_build_folder_of_the_tool() -> None:
@@ -185,57 +187,115 @@ def test_a_root_that_excludes_the_configuration_file_is_rejected() -> None:
 # --- Root and place of the configuration file -------------------------------------------------
 
 
-def test_the_root_is_the_nearest_ancestor_holding_a_configuration_file(tmp_path: Path) -> None:
-    """The search stops at the nearest folder holding the file, in `config/tools/` or at its
-    level, and falls back to the start folder."""
-    outer = tmp_path / "outer"
-    inner = outer / "inner"
-    (outer / "config" / "tools").mkdir(parents=True)
-    (outer / "config" / "tools" / "elenchos.toml").write_text("")
-    (inner / "docs").mkdir(parents=True)
-    (inner / "elenchos.toml").write_text("")
-    assert find_root(inner / "docs") == inner.resolve()
-    assert find_root(outer / "config") == outer.resolve()
-    assert find_root(tmp_path) == tmp_path.resolve()
+def write(root: Path, files: dict[str, str]) -> Path:
+    """Write each file below `root`, creating its folders, and return `root`."""
+    for name, content in files.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(content, encoding="utf-8")
+    return root
 
 
-def test_the_configuration_is_found_in_either_place(tmp_path: Path) -> None:
-    """Without --config, the file is `config/tools/elenchos.toml` or `elenchos.toml`."""
-    (tmp_path / "elenchos.toml").write_text("")
-    assert locate_configuration(tmp_path, None) == tmp_path / "elenchos.toml"
-    (tmp_path / "elenchos.toml").unlink()
-    (tmp_path / "config" / "tools").mkdir(parents=True)
-    (tmp_path / "config" / "tools" / "elenchos.toml").write_text("")
-    assert locate_configuration(tmp_path, None) == tmp_path / "config" / "tools" / "elenchos.toml"
+def test_the_root_is_the_nearest_folder_upwards_holding_a_configuration_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The search stops at the nearest folder holding the file at one of its places, and falls
+    back to the current folder."""
+    monkeypatch.delenv("ELENCHOS_ROOT", raising=False)
+    outer = write(tmp_path / "outer", {".config/elenchos.toml": "", "notes/b.md": ""})
+    inner = write(outer / "inner", {"elenchos.toml": "", "docs/a.md": ""})
+    monkeypatch.chdir(inner / "docs")
+    assert discover_root() == inner.resolve()
+    monkeypatch.chdir(outer / "notes")
+    assert discover_root() == outer.resolve()
+    monkeypatch.chdir(tmp_path)
+    assert discover_root() == tmp_path.resolve()
 
 
-def test_two_competing_configuration_files_are_rejected(tmp_path: Path) -> None:
-    """Both places holding a file is an error naming both."""
-    (tmp_path / "config" / "tools").mkdir(parents=True)
-    (tmp_path / "config" / "tools" / "elenchos.toml").write_text("")
-    (tmp_path / "elenchos.toml").write_text("")
-    with pytest.raises(ConfigurationError) as error:
-        locate_configuration(tmp_path, None)
-    assert "config/tools/elenchos.toml" in str(error.value)
-    assert str(tmp_path / "elenchos.toml") in str(error.value)
+def test_the_root_comes_from_the_option_then_from_elenchos_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--root` wins over `ELENCHOS_ROOT`, which wins over the search."""
+    named = write(tmp_path / "named", {"elenchos.toml": ""})
+    found = write(tmp_path / "found", {"elenchos.toml": ""})
+    monkeypatch.chdir(found)
+    monkeypatch.setenv("ELENCHOS_ROOT", str(named))
+    assert discover_root() == named.resolve()
+    assert discover_root(Path(".")) == found.resolve()
+
+
+def test_a_root_that_is_not_a_folder_is_rejected(tmp_path: Path) -> None:
+    write(tmp_path, {"file": ""})
+    with pytest.raises(ConfigurationError, match="the root is not a folder"):
+        discover_root(tmp_path / "file")
 
 
 @pytest.mark.parametrize(
-    "name", [".elenchos.toml", "config/elenchos.toml"], ids=["dotted", "config-folder"]
+    "files, place",
+    [
+        ({"elenchos.toml": ""}, "elenchos.toml"),
+        ({".config/elenchos.toml": ""}, ".config/elenchos.toml"),
+        ({"shared/elenchos.toml": "", "hodegos.yml": DECLARATION}, "shared/elenchos.toml"),
+    ],
+    ids=["root", "dot-config", "declared-folder"],
+)
+def test_the_configuration_is_found_at_each_place(
+    tmp_path: Path, files: dict[str, str], place: str
+) -> None:
+    """Without --config, the file lies at the root, in `.config/`, or in a declared folder."""
+    root = write(tmp_path, files)
+    assert discover_configuration(root) == (root.resolve(), root / place)
+
+
+@pytest.mark.parametrize(
+    "name", [".elenchos.toml", "shared/elenchos.toml"], ids=["dotted", "undeclared-folder"]
 )
 def test_a_configuration_file_elsewhere_is_not_read(tmp_path: Path, name: str) -> None:
-    """Only the two conventional places are searched; a former place is not a fallback."""
-    (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
-    (tmp_path / name).write_text("")
-    with pytest.raises(ConfigurationError, match="no configuration file"):
-        locate_configuration(tmp_path, None)
+    """A folder that `hodegos.yml` does not declare is not a place; no place holding the file
+    stops the gate, which has no built-in checks."""
+    write(tmp_path, {name: ""})
+    with pytest.raises(ConfigurationError) as error:
+        discover_configuration(tmp_path)
+    assert str(error.value) == (
+        f"{tmp_path.resolve()}: no configuration: write elenchos.toml at the root, in .config/, "
+        "or in a folder that hodegos.yml declares, or name it with --config"
+    )
+
+
+def test_two_competing_configuration_files_are_rejected(tmp_path: Path) -> None:
+    """Two places holding a file is an error naming both."""
+    write(tmp_path, {"shared/elenchos.toml": "", "elenchos.toml": "", "hodegos.yml": DECLARATION})
+    with pytest.raises(ConfigurationError) as error:
+        discover_configuration(tmp_path)
+    assert str(tmp_path / "shared" / "elenchos.toml") in str(error.value)
+    assert str(tmp_path / "elenchos.toml") in str(error.value)
+
+
+def test_an_invalid_declaration_is_a_configuration_error(tmp_path: Path) -> None:
+    write(
+        tmp_path, {"elenchos.toml": "", "hodegos.yml": "_schema: hodegos:configuration@1\nx: 1\n"}
+    )
+    with pytest.raises(ConfigurationError, match="hodegos.yml"):
+        discover_configuration(tmp_path)
+
+
+def test_a_file_named_by_config_is_read_from_the_current_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A file named by --config wins over the places of the root, and resolves against the
+    current folder, not against the root."""
+    root = write(tmp_path / "consumer", {"elenchos.toml": "", "settings/other.toml": ""})
+    monkeypatch.chdir(root / "settings")
+    assert discover_configuration(root, Path("other.toml"))[1] == root / "settings" / "other.toml"
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ConfigurationError, match="no configuration file at"):
+        discover_configuration(root, Path("other.toml"))
 
 
 def test_an_absent_file_named_by_config_is_rejected(tmp_path: Path) -> None:
     """A file named by --config and absent is an error, even when a default file exists."""
-    (tmp_path / "elenchos.toml").write_text("")
-    with pytest.raises(ConfigurationError, match="does not exist"):
-        locate_configuration(tmp_path, tmp_path / "missing.toml")
+    write(tmp_path, {"elenchos.toml": ""})
+    with pytest.raises(ConfigurationError, match="no configuration file at"):
+        discover_configuration(tmp_path, tmp_path / "missing.toml")
 
 
 # --- Suppressions -----------------------------------------------------------------------------

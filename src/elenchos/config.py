@@ -1,11 +1,12 @@
 """
 Configuration of a consumer: its checks, its severity policy and its suppressions file.
 
-The consumer declares every input of the gate in one TOML file, `elenchos.toml`, read from
-`config/tools/elenchos.toml` or `elenchos.toml` below the root of the consumer, or from the path
-given by `--config`. The root is given by `--root`, by the environment variable `ELENCHOS_ROOT`, or
-found as the nearest ancestor of the current folder that holds the file; every path written in the
-file resolves against it. The format is published as the JSON Schema
+The consumer declares every input of the gate in one TOML file, `elenchos.toml`. Hodegos locates
+the file and the root of a command, as its specification states: the file lies at the root, in its
+subfolder `.config/`, or in a folder that the `hodegos.yml` of the root declares, unless `--config`
+names another. The root is given by `--root`, by the environment variable `ELENCHOS_ROOT`, or found
+as the nearest folder, from the current one upwards, that holds the file at one of its places;
+every path written in the file resolves against it. The format is published as the JSON Schema
 `src/elenchos/schemas/configuration.schema.json`, and specified in `docs/configuration.md`.
 
 Classes
@@ -21,10 +22,10 @@ Configuration
 
 Functions
 ---------
-find_root(start) -> Path
-    Return the nearest ancestor of a folder that holds a configuration file, or the folder itself.
-locate_configuration(root, config) -> Path
-    Return the configuration file named on the command line, or the one found below the root.
+discover_root(root) -> Path
+    Return the root of a command, located through Hodegos.
+discover_configuration(root, config) -> tuple[Path, Path]
+    Return the root of a command and its configuration file, located through Hodegos.
 load_configuration(path, root) -> Configuration
     Read and validate the configuration file of a consumer.
 parse_configuration(data, path, root) -> Configuration
@@ -55,6 +56,8 @@ import re
 import tomllib
 from typing import Any, Mapping
 
+from hodegos import Discovery, DiscoveryError, Tool, discover
+
 from .errors import ConfigurationError, ProfileError
 from .identity import RULE_PATTERN, TOOL_PATTERN, check_resource
 from .sarif import LEVELS
@@ -70,14 +73,15 @@ longer read.
 RETIRED_SCHEMA_KEY = "version"
 """Key that declared the format before `_schema`; a file that holds it gets the value to write."""
 
-SETTINGS_NAME = "elenchos.toml"
-"""Name of the configuration file, below the root or in its folder `config/tools/`."""
+TOOL = Tool("elenchos", ("toml",))
+"""Convention of Elenchos for Hodegos: the file `elenchos.toml` and the variable `ELENCHOS_ROOT`.
 
-SETTINGS_PLACES = (Path("config") / "tools" / SETTINGS_NAME, Path(SETTINGS_NAME))
-"""Places of the configuration file relative to the root, searched without `--config`."""
+The table `[tool.elenchos]` of `pyproject.toml` is not a place: a gate result locates a failed
+check by a pointer into the whole configuration file.
+"""
 
-ROOT_VARIABLE = "ELENCHOS_ROOT"
-"""Environment variable naming the root when `--root` is absent."""
+SETTINGS_NAME = TOOL.file_names[0]
+"""Name of the configuration file, `elenchos.toml`."""
 
 SCOPES = ("root", "paths")
 """Values of the `scope` of a check: it always checks the whole root, or it accepts paths."""
@@ -253,8 +257,8 @@ class Configuration:
         >>> configuration = Configuration(
         ...     Path("/r/c.toml"), Path("/r"), Path("/r/o"), None, Policy(frozenset()), ()
         ... )
-        >>> configuration.relative(Path("/r/config/tools/elenchos.toml"))
-        'config/tools/elenchos.toml'
+        >>> configuration.relative(Path("/r/.config/elenchos.toml"))
+        '.config/elenchos.toml'
         """
         return path.relative_to(self.root).as_posix()
 
@@ -464,76 +468,86 @@ def parse_configuration(data: Mapping[str, Any], path: Path, root: Path) -> Conf
     )
 
 
-def find_root(start: Path) -> Path:
+def _discover(root: Path | None, config: Path | None) -> Discovery:
+    """Return the discovery of Hodegos, its errors made configuration errors of Elenchos."""
+    try:
+        found = discover(TOOL, root=root, config=config)
+    except DiscoveryError as error:
+        raise ConfigurationError(str(error)) from error
+    if not found.root.is_dir():
+        raise ConfigurationError(f"{found.root}: the root is not a folder")
+    return found
+
+
+def discover_root(root: Path | None = None) -> Path:
     """
-    Return the nearest ancestor of a folder that holds a configuration file, or the folder itself.
+    Return the root of a command, located through Hodegos.
 
     Parameters
     ----------
-    start : Path
-        Folder from which the search starts, normally the current folder.
+    root : Path | None
+        Root given by `--root`, relative to the current folder, or None to take it from
+        `ELENCHOS_ROOT` or to search for it.
 
     Returns
     -------
     Path
-        The nearest folder, `start` included, holding `config/tools/elenchos.toml` or
-        `elenchos.toml`; `start` itself when no ancestor holds one.
+        The root, resolved: `root` when given, else the folder named by `ELENCHOS_ROOT`, else the
+        nearest folder, from the current one upwards, holding `elenchos.toml` at one of its places,
+        else the current folder.
+
+    Raises
+    ------
+    ConfigurationError
+        If the root is not a folder, or if Hodegos rejects a declaration `hodegos.yml` met by the
+        search or finds two places of the root holding a file.
 
     Examples
     --------
     >>> import tempfile
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     root = Path(folder).resolve()
-    ...     (root / "config" / "tools").mkdir(parents=True)
-    ...     _ = (root / "config" / "tools" / "elenchos.toml").write_text("")
-    ...     (root / "docs" / "notes").mkdir(parents=True)
-    ...     find_root(root / "docs" / "notes") == root
+    ...     discover_root(root) == root
     True
     """
-    start = start.resolve()
-    for folder in (start, *start.parents):
-        if any((folder / place).is_file() for place in SETTINGS_PLACES):
-            return folder
-    return start
+    return _discover(root, None).root.resolve()
 
 
-def locate_configuration(root: Path, config: Path | None) -> Path:
+def discover_configuration(
+    root: Path | None = None, config: Path | None = None
+) -> tuple[Path, Path]:
     """
-    Return the configuration file named on the command line, or the one found below the root.
+    Return the root of a command and its configuration file, located through Hodegos.
 
     Parameters
     ----------
-    root : Path
-        Root of the consumer.
+    root : Path | None
+        Root given by `--root`, relative to the current folder, or None to take it from
+        `ELENCHOS_ROOT` or to search for it (see `discover_root`).
     config : Path | None
-        Path given by `--config`, relative to the current folder, or None.
+        File given by `--config`, relative to the current folder, or None.
 
     Returns
     -------
-    Path
-        The path given by `--config`, or the single existing place of `SETTINGS_PLACES`.
+    tuple[Path, Path]
+        The root, resolved, and the configuration file: `config` when given, made absolute,
+        otherwise the single place of the root holding `elenchos.toml`.
 
     Raises
     ------
     ConfigurationError
-        If the file named by `--config` does not exist, if both places hold a file, or if neither
-        does: the gate has no built-in checks to run without a configuration.
+        If the root is not a folder, if the file named by `--config` does not exist, if Hodegos
+        rejects a declaration `hodegos.yml`, if two places of the root hold a file, or if no place
+        holds one: the gate has no built-in checks to run without a configuration.
     """
-    if config is not None:
-        if not config.is_file():
-            raise ConfigurationError(
-                f"{config}: the configuration file named by --config does not exist"
-            )
-        return config
-    found = [root / place for place in SETTINGS_PLACES if (root / place).is_file()]
-    if len(found) > 1:
+    found = _discover(root, config)
+    resolved = found.root.resolve()
+    if found.configuration is None:
         raise ConfigurationError(
-            f"two configuration files compete: {found[0]} and {found[1]}; keep one of them"
+            f"{resolved}: no configuration: write {SETTINGS_NAME} at the root, in .config/, "
+            "or in a folder that hodegos.yml declares, or name it with --config"
         )
-    if not found:
-        places = " or ".join(str(root / place) for place in SETTINGS_PLACES)
-        raise ConfigurationError(f"no configuration file: expected {places}, or --config")
-    return found[0]
+    return resolved, found.configuration.path
 
 
 def load_configuration(path: Path, root: Path) -> Configuration:

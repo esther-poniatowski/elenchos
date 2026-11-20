@@ -9,7 +9,7 @@ aliases:
 
 This specification fixes the two files through which a consumer declares the inputs of the gate: the configuration, listing the checks and the severity policy, and the suppressions file, listing the tolerated findings. It also fixes how `elenchos check` runs the checks and decides its exit status. The grounds of each choice, and the options weighed, are recorded in the [decision on the runner and the suppressions](adr/runner-and-suppressions.md). The SARIF objects that the gate reads and writes follow the [findings profile](profile.md).
 
-The configuration names the paths of the consumer. Elenchos itself locates the root of the consumer and the configuration file, and places the logs and the merged log in `build/elenchos/` when the configuration places none:
+The configuration names the paths of the consumer. Elenchos locates the root of the consumer and the configuration file through [Hodegos](https://github.com/esther-poniatowski/hodegos/blob/main/docs/specification.md), and places the logs and the merged log in `build/elenchos/` when the configuration places none:
 
 ```sh
 elenchos check                                        # from the root or any folder below it
@@ -20,10 +20,18 @@ elenchos check --root PATH --config FILE              # both named explicitly
 
 1. the option `-r`, `--root`;
 2. the environment variable `ELENCHOS_ROOT`;
-3. the nearest ancestor of the current folder, the current folder included, that holds `config/tools/elenchos.toml` or `elenchos.toml`;
+3. the nearest folder, from the current folder upwards, that holds `elenchos.toml` at one of its places;
 4. the current folder.
 
-**Configuration file.** The configuration file is named `elenchos.toml`. Without `-c`, `--config`, Elenchos reads `config/tools/elenchos.toml` or `elenchos.toml` below the root. When both exist, the gate refuses to run and names both. When neither exists, the gate also refuses to run, since it has no built-in checks. A file named by `--config` and absent is an error. A path given on the command line, to `--root`, `--config` or as a scope, is read from the current folder.
+**Configuration file.** The configuration file is named `elenchos.toml`. Without `-c`, `--config`, Elenchos reads the file at the one place of the root that holds it. The places are the root itself, its subfolder `.config/`, and each folder that the declaration `hodegos.yml` of the root lists. When two places hold the file, the gate refuses to run and names both. When no place holds it, the gate also refuses to run, since it has no built-in checks. The table `[tool.elenchos]` of `pyproject.toml` is not a place, since a result of the gate locates a failed check by a pointer into the whole configuration file. The [specification of Hodegos](https://github.com/esther-poniatowski/hodegos/blob/main/docs/specification.md) states the places and the format of the declaration. A consumer keeping its configuration in `config/tools/` declares that folder:
+
+```yaml
+_schema: hodegos:configuration@1
+folders:
+  - config/tools
+```
+
+An invalid declaration stops the gate with status 2. A file named by `--config` and absent is an error. A path given on the command line, to `--root`, `--config` or as a scope, is read from the current folder.
 
 ## 1. Configuration
 
@@ -68,7 +76,7 @@ block = ["error", "warning"]
 | `renames.rules` | optional | the new `tool|ruleId` of a renamed or moved rule, keyed by its former `tool|ruleId` |
 | `renames.resources` | optional | the new resource of a moved or newly identified resource, keyed by its former resource (`path:<path>` or `id:<identifier>`) |
 
-**Paths.** Every relative path of the file resolves against the root, never against the folder of the file, so the file moves between the root and `config/tools/` without an edit. The configuration file and the suppressions file lie under the root, since the gate names them as resources (`path:`) in its own results. Logs and the output may lie anywhere.
+**Paths.** Every relative path of the file resolves against the root, never against the folder of the file, so the file moves between the places of the root without an edit. The configuration file and the suppressions file lie under the root, since the gate names them as resources (`path:`) in its own results. Logs and the output may lie anywhere.
 
 **Logs.** A command must write its log where the gate reads it. Before running a command, the gate replaces the text `{log}`, in each argument, by the absolute path of the log of the check: the declared `log`, or `build/elenchos/<name>.sarif` below the root. The text may form a whole argument, `"{log}"`, or a part of one, `"--output={log}"`. The paths of a scoped run are appended after this replacement, unchanged. A command that holds no placeholder runs as written, so it names its log itself: by repeating the declared `log`, as a configuration written before the placeholder does, or by writing at the default place. A check that declares no `log` and holds no placeholder is therefore accepted: when its command writes no log at the default place, the check fails with `check/missing-log`, and the message names the default place and the placeholder. The defaults obey the rule of unique logs: a check named `gate` without `log` coincides with the default output, and is rejected unless `output` or its `log` is declared.
 

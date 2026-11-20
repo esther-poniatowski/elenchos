@@ -48,7 +48,7 @@ elenchos validate --format sarif --output build/elenchos/records.sarif
 elenchos validate notes/ specs/model.yml
 ```
 
-The root comes from `--root`, from the environment variable `ELENCHOS_ROOT`, or from the search of the gate configuration ([gate configuration](configuration.md)). Paths given after the options restrict the report to the records below them. The option `--format` takes `text`, the default, or `sarif`; the option `--output` names the file of the report. Without `--output`, the report goes to standard output.
+The root comes from `--root`, from the environment variable `ELENCHOS_ROOT`, or from the search of the gate configuration ([gate configuration](configuration.md)), which Hodegos resolves. The command reads no gate configuration, but two places of the root holding `elenchos.toml`, or an invalid `hodegos.yml`, stop it with status 2. Paths given after the options restrict the report to the records below them. The option `--format` takes `text`, the default, or `sarif`; the option `--output` names the file of the report. Without `--output`, the report goes to standard output.
 
 The exit status is 0 when no record breaks its schema, 1 when a record does, and 2 when the check cannot run. The check cannot run in four cases:
 

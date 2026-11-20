@@ -21,4 +21,9 @@ dependencies:
   # CLI
   - typer                  # command line interface
   - rich                   # terminal output formatting
+  # Sibling tools, pinned by commit; pip installs a Git reference, which a conda dependency cannot
+  # name.
+  - pip
+  - pip:
+      - hodegos @ git+https://github.com/esther-poniatowski/hodegos.git@e61d0d97eaa80cc0cfdd90c3022c1e3916ef1ad9
 variables:
