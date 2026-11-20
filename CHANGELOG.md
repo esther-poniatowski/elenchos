@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `hodegos.yml` left at the root is ignored, so an invalid one no longer stops `check`, `update`
   or `validate`. A root that holds both `config/elenchos.toml` and another place of the file stops
   the command with status 2.
+- **Breaking:** The extra `validate` pins Kleisis at `b098f5e` and `anagraphe-read` 0.5.0 at
+  `107a80b`, which share Hodegos `a151a28`. The command `validate` reads `anagraphe.yml` at the
+  root, in `.config/` or in `config/`, and no longer in `config/tools/`. The extra installs
+  Merismos, which `anagraphe-read` requires.
 - **Breaking:** Hodegos resolves the root of a command and locates `elenchos.toml`, as its
   [specification](https://github.com/esther-poniatowski/hodegos/blob/main/docs/specification.md)
   states. The file lies at the root, in its subfolder `.config/`, or in its subfolder `config/`.

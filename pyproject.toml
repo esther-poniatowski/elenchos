@@ -49,8 +49,8 @@ dependencies = [
 # Elenchos without this extra.
 validate = [
     "pyyaml",
-    "kleisis @ git+https://github.com/esther-poniatowski/kleisis.git@aab7c0a494a304ce64f9746968deaf0e788b7e26",
-    "anagraphe-read @ git+https://github.com/esther-poniatowski/anagraphe.git@2237feaa1f654a2be87a7b2948b75dfa070a3b1f#subdirectory=packages/read-python",
+    "kleisis @ git+https://github.com/esther-poniatowski/kleisis.git@b098f5e4bbabf7a872784fb6974471ad32205269",
+    "anagraphe-read @ git+https://github.com/esther-poniatowski/anagraphe.git@107a80bbae354fa00cd4981369a7ea747857aec2#subdirectory=packages/read-python",
 ]
 
 
