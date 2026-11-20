@@ -23,15 +23,14 @@ elenchos check --root PATH --config FILE              # both named explicitly
 3. the nearest folder, from the current folder upwards, that holds `elenchos.toml` at one of its places;
 4. the current folder.
 
-**Configuration file.** The configuration file is named `elenchos.toml`. Without `-c`, `--config`, Elenchos reads the file at the one place of the root that holds it. The places are the root itself, its subfolder `.config/`, and each folder that the declaration `hodegos.yml` of the root lists. When two places hold the file, the gate refuses to run and names both. When no place holds it, the gate also refuses to run, since it has no built-in checks. The table `[tool.elenchos]` of `pyproject.toml` is not a place, since a result of the gate locates a failed check by a pointer into the whole configuration file. The [specification of Hodegos](https://github.com/esther-poniatowski/hodegos/blob/main/docs/specification.md) states the places and the format of the declaration. A consumer keeping its configuration in `config/tools/` declares that folder:
+**Configuration file.** The configuration file is named `elenchos.toml`. Without `-c`, `--config`, Elenchos reads the file at the one place of the root that holds it. The places are the root itself, its subfolder `.config/`, and its subfolder `config/`, as the [specification of Hodegos](https://github.com/esther-poniatowski/hodegos/blob/main/docs/specification.md#the-places-of-a-folder) states. When two places hold the file, the gate refuses to run and names both. When no place holds it, the gate also refuses to run, since it has no built-in checks. The table `[tool.elenchos]` of `pyproject.toml` is not a place, since a result of the gate locates a failed check by a pointer into the whole configuration file. A consumer keeping its configuration in another folder, such as `config/tools/`, names the file with `--config`. The search of the root does not see that file, so the command runs from the root or names it with `--root`:
 
-```yaml
-_schema: hodegos:configuration@1
-folders:
-  - config/tools
+```sh
+elenchos check --config config/tools/elenchos.toml               # from the root
+elenchos check --root PATH --config PATH/config/tools/elenchos.toml
 ```
 
-An invalid declaration stops the gate with status 2. A file named by `--config` and absent is an error. A path given on the command line, to `--root`, `--config` or as a scope, is read from the current folder.
+A file named by `--config` and absent is an error. A path given on the command line, to `--root`, `--config` or as a scope, is read from the current folder.
 
 ## 1. Configuration
 

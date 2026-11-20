@@ -104,7 +104,7 @@ CONFIG_OPTION = typer.Option(
     help=(
         "Configuration file of the consumer, declaring its checks, policy and suppressions, "
         "relative to the current folder; by default elenchos.toml at the root, in .config/, or in "
-        "a folder that hodegos.yml declares."
+        "config/."
     ),
 )
 ROOT_OPTION = typer.Option(

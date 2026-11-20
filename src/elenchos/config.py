@@ -2,12 +2,15 @@
 Configuration of a consumer: its checks, its severity policy and its suppressions file.
 
 The consumer declares every input of the gate in one TOML file, `elenchos.toml`. Hodegos locates
-the file and the root of a command, as its specification states: the file lies at the root, in its
-subfolder `.config/`, or in a folder that the `hodegos.yml` of the root declares, unless `--config`
-names another. The root is given by `--root`, by the environment variable `ELENCHOS_ROOT`, or found
-as the nearest folder, from the current one upwards, that holds the file at one of its places;
-every path written in the file resolves against it. The format is published as the JSON Schema
-`src/elenchos/schemas/configuration.schema.json`, and specified in `docs/configuration.md`.
+the file and the root of a command, as the specification of Hodegos states, at the address
+https://github.com/esther-poniatowski/hodegos/blob/main/docs/specification.md#the-places-of-a-folder
+
+The file lies at the root, in its subfolder `.config/`, or in its subfolder `config/`, unless
+`--config` names another. The root is given by `--root`, by the environment variable
+`ELENCHOS_ROOT`, or found as the nearest folder, from the current one upwards, that holds the file
+at one of its places; every path written in the file resolves against it. The format is published
+as the JSON Schema `src/elenchos/schemas/configuration.schema.json`, and specified in
+`docs/configuration.md`.
 
 Classes
 -------
@@ -499,8 +502,7 @@ def discover_root(root: Path | None = None) -> Path:
     Raises
     ------
     ConfigurationError
-        If the root is not a folder, or if Hodegos rejects a declaration `hodegos.yml` met by the
-        search or finds two places of the root holding a file.
+        If the root is not a folder, or if Hodegos finds two places of the root holding a file.
 
     Examples
     --------
@@ -536,16 +538,16 @@ def discover_configuration(
     Raises
     ------
     ConfigurationError
-        If the root is not a folder, if the file named by `--config` does not exist, if Hodegos
-        rejects a declaration `hodegos.yml`, if two places of the root hold a file, or if no place
-        holds one: the gate has no built-in checks to run without a configuration.
+        If the root is not a folder, if the file named by `--config` does not exist, if two places
+        of the root hold a file, or if no place holds one: the gate has no built-in checks to run
+        without a configuration.
     """
     found = _discover(root, config)
     resolved = found.root.resolve()
     if found.configuration is None:
         raise ConfigurationError(
             f"{resolved}: no configuration: write {SETTINGS_NAME} at the root, in .config/, "
-            "or in a folder that hodegos.yml declares, or name it with --config"
+            "or in config/, or name it with --config"
         )
     return resolved, found.configuration.path
 

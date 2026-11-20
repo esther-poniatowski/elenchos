@@ -77,8 +77,7 @@ def consumer(
     rules: str = '"terms|terms/advice" = []',
     stopping: str | None = None,
 ) -> Path:
-    """Write a consumer under `root`: its configuration in `shared/`, which its `hodegos.yml`
-    declares, and its suppressions."""
+    """Write a consumer under `root`: its configuration in `config/`, and its suppressions."""
     if entries is None:
         entries = [
             {"identity": SUPPRESSED, "justification": "tolerated when the gate started"},
@@ -90,10 +89,7 @@ def consumer(
         json.dumps({"_schema": "elenchos:suppressions@1", "suppressions": entries}),
         encoding="utf-8",
     )
-    (root / "hodegos.yml").write_text(
-        "_schema: hodegos:configuration@1\nfolders:\n  - shared\n", encoding="utf-8"
-    )
-    path = root / "shared" / "elenchos.toml"
+    path = root / "config" / "elenchos.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         f"""_schema = "elenchos:configuration@3"
@@ -222,7 +218,7 @@ def test_entry_of_a_failed_check_is_unverified_not_stale(tmp_path: Path) -> None
 
 STOPPED = "stopper|stage/failed|path:s.md"
 BEYOND_STOP = "stopper|stage/later|path:t.md"
-STOPPER_DECLARATION = f"elenchos|{CHECK_INCOMPLETE}|path:shared/elenchos.toml|/checks/stopper"
+STOPPER_DECLARATION = f"elenchos|{CHECK_INCOMPLETE}|path:config/elenchos.toml|/checks/stopper"
 
 
 def stopper_entries() -> list[dict[str, Any]]:
@@ -291,7 +287,7 @@ def test_misbehaving_check_is_reported_at_its_declaration(
     """A crash, a missing log or an invalid log yields one blocking result of the gate, located
     at the declaration of the check, and the other checks still report."""
     _, report = gate(consumer(tmp_path, mode, entries=[]))
-    identity = f"elenchos|{rule}|path:shared/elenchos.toml|/checks/broken-0"
+    identity = f"elenchos|{rule}|path:config/elenchos.toml|/checks/broken-0"
     assert verdicts(report)[identity] == (False, True)
     assert UNSUPPRESSED in verdicts(report)
 

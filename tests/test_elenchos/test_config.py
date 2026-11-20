@@ -22,9 +22,7 @@ from elenchos.suppressions import parse_suppressions, write_suppressions
 SPECS = Path(__file__).parents[2] / "specs"
 SCHEMAS = Path(__file__).parents[2] / "src" / "elenchos" / "schemas"
 ROOT = Path("/consumer")
-CONFIG_PATH = ROOT / "shared" / "elenchos.toml"
-DECLARATION = "_schema: hodegos:configuration@1\nfolders:\n  - shared\n"
-"""Declaration `hodegos.yml` of a consumer keeping its configuration in `shared/`."""
+CONFIG_PATH = ROOT / "config" / "elenchos.toml"
 
 VALID_CONFIGURATION: dict[str, Any] = {
     "_schema": "elenchos:configuration@3",
@@ -113,7 +111,7 @@ def test_valid_configuration_resolves_paths_against_the_root() -> None:
     assert configuration.output == root / "build" / "gate.sarif"
     assert configuration.checks[0].log == root / "logs" / "links.sarif"
     assert configuration.checks[0].exit_codes == DEFAULT_EXIT_CODES
-    assert configuration.relative(configuration.path) == "shared/elenchos.toml"
+    assert configuration.relative(configuration.path) == "config/elenchos.toml"
 
 
 def test_output_and_logs_default_to_the_build_folder_of_the_tool() -> None:
@@ -234,48 +232,40 @@ def test_a_root_that_is_not_a_folder_is_rejected(tmp_path: Path) -> None:
     [
         ({"elenchos.toml": ""}, "elenchos.toml"),
         ({".config/elenchos.toml": ""}, ".config/elenchos.toml"),
-        ({"shared/elenchos.toml": "", "hodegos.yml": DECLARATION}, "shared/elenchos.toml"),
+        ({"config/elenchos.toml": ""}, "config/elenchos.toml"),
     ],
-    ids=["root", "dot-config", "declared-folder"],
+    ids=["root", "dot-config", "config"],
 )
 def test_the_configuration_is_found_at_each_place(
     tmp_path: Path, files: dict[str, str], place: str
 ) -> None:
-    """Without --config, the file lies at the root, in `.config/`, or in a declared folder."""
+    """Without --config, the file lies at the root, in `.config/`, or in `config/`."""
     root = write(tmp_path, files)
     assert discover_configuration(root) == (root.resolve(), root / place)
 
 
 @pytest.mark.parametrize(
-    "name", [".elenchos.toml", "shared/elenchos.toml"], ids=["dotted", "undeclared-folder"]
+    "name", [".elenchos.toml", "shared/elenchos.toml"], ids=["dotted", "other-folder"]
 )
 def test_a_configuration_file_elsewhere_is_not_read(tmp_path: Path, name: str) -> None:
-    """A folder that `hodegos.yml` does not declare is not a place; no place holding the file
-    stops the gate, which has no built-in checks."""
+    """A folder that no rule of Hodegos admits, such as `shared/`, is not a place; no place
+    holding the file stops the gate, which has no built-in checks."""
     write(tmp_path, {name: ""})
     with pytest.raises(ConfigurationError) as error:
         discover_configuration(tmp_path)
     assert str(error.value) == (
         f"{tmp_path.resolve()}: no configuration: write elenchos.toml at the root, in .config/, "
-        "or in a folder that hodegos.yml declares, or name it with --config"
+        "or in config/, or name it with --config"
     )
 
 
 def test_two_competing_configuration_files_are_rejected(tmp_path: Path) -> None:
     """Two places holding a file is an error naming both."""
-    write(tmp_path, {"shared/elenchos.toml": "", "elenchos.toml": "", "hodegos.yml": DECLARATION})
+    write(tmp_path, {"config/elenchos.toml": "", "elenchos.toml": ""})
     with pytest.raises(ConfigurationError) as error:
         discover_configuration(tmp_path)
-    assert str(tmp_path / "shared" / "elenchos.toml") in str(error.value)
+    assert str(tmp_path / "config" / "elenchos.toml") in str(error.value)
     assert str(tmp_path / "elenchos.toml") in str(error.value)
-
-
-def test_an_invalid_declaration_is_a_configuration_error(tmp_path: Path) -> None:
-    write(
-        tmp_path, {"elenchos.toml": "", "hodegos.yml": "_schema: hodegos:configuration@1\nx: 1\n"}
-    )
-    with pytest.raises(ConfigurationError, match="hodegos.yml"):
-        discover_configuration(tmp_path)
 
 
 def test_a_file_named_by_config_is_read_from_the_current_folder(

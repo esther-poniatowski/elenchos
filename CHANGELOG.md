@@ -43,13 +43,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Breaking:** Elenchos requires Hodegos at commit `a151a28`. Therefore, Elenchos searches
+  `config/elenchos.toml`, and no longer searches a folder that a file `hodegos.yml` lists. A file
+  `hodegos.yml` left at the root is ignored, so an invalid one no longer stops `check`, `update`
+  or `validate`. A root that holds both `config/elenchos.toml` and another place of the file stops
+  the command with status 2.
 - **Breaking:** Hodegos resolves the root of a command and locates `elenchos.toml`, as its
-  specification states. The file lies at the root, in its subfolder `.config/`, or in a folder
-  that the `hodegos.yml` of the root declares. `config/tools/elenchos.toml` is read only when
-  `hodegos.yml` lists `config/tools`. `discover_root` and `discover_configuration` replace
+  [specification](https://github.com/esther-poniatowski/hodegos/blob/main/docs/specification.md)
+  states. The file lies at the root, in its subfolder `.config/`, or in its subfolder `config/`.
+  Elenchos no longer reads `config/tools/elenchos.toml`: the option `--config` names a file kept in
+  that folder or in any other folder. `discover_root` and `discover_configuration` replace
   `find_root` and `locate_configuration`, and the constants `SETTINGS_PLACES` and `ROOT_VARIABLE`
   are removed. The distribution requires `hodegos`. The command `validate` stops with status 2 when
-  two places of the root hold `elenchos.toml` or when `hodegos.yml` is invalid.
+  two places of the root hold `elenchos.toml`.
 - The schemas move from `specs/schemas/` to `src/elenchos/schemas/`, so that the Python package
   ships them; their `$id`s are unchanged.
 - The distribution requires `jsonschema` and `referencing`.
