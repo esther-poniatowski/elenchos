@@ -122,6 +122,15 @@ CHANGED_OPTION = typer.Option(
     "--changed",
     help="Scope the run to the files changed since the last commit and the untracked files.",
 )
+ANAGRAPHE_CONFIG_OPTION = typer.Option(
+    None,
+    "--anagraphe-config",
+    help=(
+        "Configuration file of Anagraphe, declaring the records, their binding key and their "
+        "schema registry, relative to the current folder; by default anagraphe.yml at the root, "
+        "in .config/, or in config/."
+    ),
+)
 PATHS_ARGUMENT = typer.Argument(
     None, help="Scope the run to these files or folders, under the root of the consumer."
 )
@@ -308,6 +317,7 @@ def _emit(report: str, output: Path | None) -> None:
 @app.command("validate")
 def cli_validate(
     root: Optional[Path] = ROOT_OPTION,
+    anagraphe_config: Optional[Path] = ANAGRAPHE_CONFIG_OPTION,
     output_format: str = typer.Option(
         "text", "--format", help="Report format: `text`, or `sarif` for a findings log."
     ),
@@ -320,9 +330,11 @@ def cli_validate(
     Validate each record against the schema that its binding names.
 
     The records, their binding key and their schema registry are those that the configuration of
-    Anagraphe declares. Paths restrict the report to the records below them. The exit status is 0
-    when no record breaks its schema, 1 when one does, and 2 when the check cannot run; with
-    `--format sarif`, the log then holds a failed run that states why.
+    Anagraphe declares: the file named by `--anagraphe-config`, else anagraphe.yml at the root, in
+    .config/, or in config/. Paths restrict the report to the records below them. The exit status
+    is 0 when no record breaks its schema, 1 when one does, and 2 when the check cannot run, a file
+    named by `--anagraphe-config` and absent included; with `--format sarif`, the log then holds a
+    failed run that states why.
     """
     try:
         # The check needs the extra `validate`, which the gate alone does not.
@@ -340,7 +352,7 @@ def cli_validate(
     except ConfigurationError as error:
         typer.echo(f"elenchos: {error}", err=True)
         raise typer.Exit(EXIT_ERROR) from error
-    outcome = validate_repository(resolved, scope)
+    outcome = validate_repository(resolved, scope, anagraphe_config)
     if output_format == "sarif":
         report = json.dumps(sarif_log(outcome), indent=2, ensure_ascii=False) + "\n"
     else:

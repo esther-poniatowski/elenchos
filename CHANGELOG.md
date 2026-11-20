@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   The registry exports `elenchos:configuration@3` and `elenchos:suppressions@1`, and declares the
   keyword `x-entry-key`.
 
+- The option `--anagraphe-config PATH` of `elenchos validate` names the configuration of Anagraphe
+  kept outside the root, `.config/` and `config/`, such as `config/tools/anagraphe.yml`. The path
+  is read from the current folder, and a file absent stops the check with status 2 and a failed
+  run. Without the option, the check reads `anagraphe.yml` at one of these places, as before.
 - The placeholder `{log}` in the command of a check: before running the command, Elenchos replaces
   it, in each argument, by the absolute path of the log of the check. A command names its log once,
   instead of repeating the path of `log`.

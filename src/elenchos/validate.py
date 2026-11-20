@@ -3,13 +3,14 @@ The check `elenchos validate`: each record against the schema that its binding n
 
 A record names its contract under the binding key of the consumer, `_schema` by default. The check
 reads the records of the consumer, their binding key and the place of their schema registry through
-`anagraphe-read`, and reads the registry through the public reader of Kleisis. It then validates
-each bound record against the schema of its contract, and writes a findings log in the profile of
+`anagraphe-read`, from the configuration of Anagraphe at a place of the root or from a file named
+by the caller, and reads the registry through the public reader of Kleisis. It then validates each
+bound record against the schema of its contract, and writes a findings log in the profile of
 Elenchos, under the driver `elenchos-validate`. The specification is `docs/validation.md`.
 
 Functions
 ---------
-validate_repository(root, scope=None) -> Outcome
+validate_repository(root, scope=None, config=None) -> Outcome
     Validate every bound record of the repository at `root`.
 sarif_log(outcome) -> dict
     Write the findings log of a validation.
@@ -283,7 +284,9 @@ def _additional(instance: Any, schema: Mapping[str, Any]) -> list[str]:
     ]
 
 
-def validate_repository(root: Path, scope: Sequence[str] | None = None) -> Outcome:
+def validate_repository(
+    root: Path, scope: Sequence[str] | None = None, config: Path | None = None
+) -> Outcome:
     """
     Validate every bound record of the repository at `root`.
 
@@ -293,16 +296,20 @@ def validate_repository(root: Path, scope: Sequence[str] | None = None) -> Outco
         The root of the consumer.
     scope : Sequence[str], optional
         Repository-relative files or folders; only the records below them are reported.
+    config : Path, optional
+        The configuration file of Anagraphe, relative to the current folder, given by
+        `--anagraphe-config`. Default: `anagraphe.yml` at the one place of the root that holds
+        it, as Hodegos locates it.
 
     Returns
     -------
     Outcome
         The findings, or the reason that stopped the validation: an invalid configuration of
-        Anagraphe, a configuration without schema registry, an unreadable registry or schema, or
-        an invalid schema.
+        Anagraphe, a file named by `config` that does not exist, a configuration without schema
+        registry, an unreadable registry or schema, or an invalid schema.
     """
     try:
-        repository = open_repository(root)
+        repository = open_repository(root, config=config)
         registry_path = repository.schema_registry
         if registry_path is None:
             raise ConfigurationError(

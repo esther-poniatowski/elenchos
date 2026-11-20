@@ -174,3 +174,66 @@ def test_a_valid_consumer_passes(tmp_path: Path) -> None:
     result = CliRunner().invoke(app, ["validate", "--root", str(root)])
     assert result.exit_code == 0, result.output
     assert result.output.strip() == "0 findings"
+
+
+OUTSIDE = "config/anagraphe/anagraphe.yml"
+"""A place of the configuration of Anagraphe outside the places that Hodegos searches: a subfolder
+of `config/`, which is not searched."""
+
+
+def consumer_outside(root: Path) -> Path:
+    """Write a consumer whose configuration of Anagraphe lies at `OUTSIDE`."""
+    consumer(root)
+    (root / OUTSIDE).parent.mkdir(parents=True)
+    (root / "anagraphe.yml").rename(root / OUTSIDE)
+    return root
+
+
+def sarif_run(root: Path, *options: str) -> tuple[int, dict]:
+    """Run the command with a SARIF report; return its status and the run of its log."""
+    log = root / "build" / "validate.sarif"
+    result = CliRunner().invoke(
+        app,
+        ["validate", "--root", str(root), *options, "--format", "sarif", "--output", str(log)],
+    )
+    document = json.loads(log.read_text(encoding="utf-8"))
+    assert violations(document) == []
+    return result.exit_code, document["runs"][0]
+
+
+def test_the_option_names_a_configuration_outside_the_places(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--anagraphe-config`, read from the current folder, gives the registry and the bindings."""
+    root = consumer_outside(tmp_path / "outside")
+    monkeypatch.chdir(root)
+    status, run = sarif_run(root, "--anagraphe-config", OUTSIDE)
+    assert status == 1
+    assert ("record/invalid", "bad.yml") in {
+        (result["ruleId"], result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"])
+        for result in run["results"]
+    }
+    outcome = validate_repository(root, config=Path(OUTSIDE))
+    assert outcome.stopped is None
+    plain = validate_repository(consumer(tmp_path / "plain"))
+    assert {item for item in summary(outcome) if item[1] != f"path:{OUTSIDE}"} == {
+        item for item in summary(plain) if item[1] != "path:anagraphe.yml"
+    }
+
+
+def test_without_the_option_no_registry_is_declared(tmp_path: Path) -> None:
+    """Without the option, the configuration outside the places is not read."""
+    status, run = sarif_run(consumer_outside(tmp_path))
+    assert status == 2
+    notification = run["invocations"][0]["toolExecutionNotifications"][0]["message"]["text"]
+    assert "declares no schema registry" in notification
+
+
+def test_an_absent_file_named_by_the_option_stops_the_check(tmp_path: Path) -> None:
+    """A missing file stops the check as an invalid configuration of Anagraphe does."""
+    root = consumer(tmp_path)
+    status, run = sarif_run(root, "--anagraphe-config", str(root / "config/absent.yml"))
+    assert status == 2
+    invocation = run["invocations"][0]
+    assert invocation["executionSuccessful"] is False and "results" not in run
+    assert "config/absent.yml" in invocation["toolExecutionNotifications"][0]["message"]["text"]

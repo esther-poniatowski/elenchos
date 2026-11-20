@@ -17,6 +17,8 @@ The check reads three inputs of the consumer, each through the tool that owns it
 - the **binding key**, read from the same configuration: the property naming the contract of a record, `_schema` by default;
 - the **schema registry**, named by the key `targets.records.registry` of the same configuration, and read through the public reader of Kleisis. The registry gives the schema of each contract, and the file of each absolute `$id` reached by a reference.
 
+The configuration of Anagraphe is the file `anagraphe.yml` at one place of the root: the root itself, its subfolder `.config/`, or its subfolder `config/`. A consumer keeping the file in another folder, such as `config/tools/`, names it with the option `--anagraphe-config` (section 3). Without the option, a file kept in another folder is not read: a root holding no file at its places has the empty configuration, which declares no schema registry, so the check cannot run.
+
 The check skips a record whose binding key holds no value. The check also skips an unreadable or unparsable record, since `anagraphe targets check` reports it as `unreadable-record`.
 
 ## 2. Rules
@@ -46,13 +48,14 @@ Once the registry of the consumer holds the contract, the check also covers a re
 elenchos validate
 elenchos validate --format sarif --output build/elenchos/records.sarif
 elenchos validate notes/ specs/model.yml
+elenchos validate --anagraphe-config config/tools/anagraphe.yml
 ```
 
-The root comes from `--root`, from the environment variable `ELENCHOS_ROOT`, or from the search of the gate configuration ([gate configuration](configuration.md)), which Hodegos resolves. The command reads no gate configuration, but two places of the root holding `elenchos.toml` stop it with status 2. Paths given after the options restrict the report to the records below them. The option `--format` takes `text`, the default, or `sarif`; the option `--output` names the file of the report. Without `--output`, the report goes to standard output.
+The root comes from `--root`, from the environment variable `ELENCHOS_ROOT`, or from the search of the gate configuration ([gate configuration](configuration.md)), which Hodegos resolves. The command reads no gate configuration, but two places of the root holding `elenchos.toml` stop it with status 2. The option `--anagraphe-config` names the configuration of Anagraphe, read from the current folder, as `--config` names the gate configuration. Paths given after the options restrict the report to the records below them. The option `--format` takes `text`, the default, or `sarif`; the option `--output` names the file of the report. Without `--output`, the report goes to standard output.
 
 The exit status is 0 when no record breaks its schema, 1 when a record does, and 2 when the check cannot run. The check cannot run in four cases:
 
-- the configuration of Anagraphe is invalid;
+- the configuration of Anagraphe is invalid, or the file named by `--anagraphe-config` does not exist;
 - the configuration lacks the section `targets`, or the schema registry in it;
 - the registry, a schema or a resource cannot be read;
 - a schema is invalid.
@@ -64,6 +67,14 @@ A consumer declares the check in its gate configuration:
 ```toml
 [checks.records]
 command = ["elenchos", "validate", "--format", "sarif", "--output", "{log}"]
+scope = "paths"
+```
+
+The gate runs the command from the root, so a path given to `--anagraphe-config` in the command is read from the root:
+
+```toml
+[checks.records]
+command = ["elenchos", "validate", "--anagraphe-config", "config/tools/anagraphe.yml", "--format", "sarif", "--output", "{log}"]
 scope = "paths"
 ```
 
