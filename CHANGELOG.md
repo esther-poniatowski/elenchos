@@ -27,9 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The command `elenchos validate` validates each record against the schema named by its binding,
   and writes its findings under the driver `elenchos-validate`. The command reads the records
   through `anagraphe-read` and the registry through Kleisis, both in the new extra `validate`.
-- The configuration of Kleisis, `config/tools/kleisis.yml`, its registry `specs/schema-registry.yml`,
-  and `hodegos.yml`. The registry exports `elenchos:configuration@3` and `elenchos:suppressions@1`,
-  and declares the keyword `x-entry-key`.
+- The configuration of Kleisis, `config/kleisis.yml`, and its registry `specs/schema-registry.yml`.
+  The registry exports `elenchos:configuration@3` and `elenchos:suppressions@1`, and declares the
+  keyword `x-entry-key`.
 
 - The placeholder `{log}` in the command of a check: before running the command, Elenchos replaces
   it, in each argument, by the absolute path of the log of the check. A command names its log once,
